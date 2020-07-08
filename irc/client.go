@@ -1,5 +1,5 @@
-// Package gotwitchbot contains a complete Twitch.tv bot, including IRC connection.
-package gotwitchbot
+// Package gotwitchbotirc contains the IRC components of gotwitchbot
+package gotwitchbotirc
 
 const (
 	// ircTwitch for Twitch's IRC constants.
@@ -24,11 +24,15 @@ const (
 	TagsCapability = "twitch.tv/membership"
 )
 
-func NewIRCClient(username, oauth string) {
-
+type client struct {
 }
 
-func NewAnonymousIRCClient() {
+func NewIRCClient(username, oauth string) client {
+	test := client{}
+	return test
+}
+
+func NewAnonymousIRCClient() client {
 	return NewIRCClient("justinfan1234321", "oauth:99999")
 }
 
