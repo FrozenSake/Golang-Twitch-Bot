@@ -1,10 +1,6 @@
 // Package gotwitchbot contains a complete Twitch.tv bot, including IRC connection.
 package gotwitchbot
 
-import (
-
-)
-
 const (
 	// ircTwitch for Twitch's IRC constants.
 	ircTwitchTLS = "irc://irc.chat.twitch.tv:6697"
@@ -34,6 +30,10 @@ func NewIRCClient(username, oauth string) {
 
 func NewAnonymousIRCClient() {
 	return NewIRCClient("justinfan1234321", "oauth:99999")
+}
+
+func Connect() {
+
 }
 
 func Join() {
