@@ -32,3 +32,4 @@ gcp/
 *.pem
 authorized_keys
 id_rsa
+.env
