@@ -50,17 +50,30 @@ func OauthCheck() {
 	}
 }
 
-func DoCommand(command string, ch broadcaster, re *regexp.Regexp) string {
+func DoCommand(message twitch.PrivateMessage, ch broadcaster, re *regexp.Regexp) string {
+	command := message.Message
 	submatch := re.FindStringSubmatch(command)
 	trigger := strings.ToLower(submatch[1])
 	options := submatch[2]
 	var result string
 
 	if trigger == "addcommand" {
-		result = DBCommandInsert(trigger, options, ch.name)
+		submatch = re.FindStringSubmatch(options)
+		newTrigger := submatch[1]
+		newOptions := submatch[2]
+		result = DBCommandInsert(newTrigger, newOptions, ch.name)
+	} else if trigger == "removecommand" {
+		submatch = re.FindStringSubmatch(options)
+		deleteTrigger := submatch[1]
+		result = DBCommandRemove(deleteTrigger, ch.name)
 	} else {
 		result = DBCommandSelect(trigger, ch.name)
+		if result == "" {
+			result = "No " + trigger + " command."
+		}
 	}
+
+	result = FormatResponse(result, message)
 
 	return result
 }
@@ -73,7 +86,7 @@ func DBPrepare(channelName string) *sql.DB {
 		panic(err)
 	}
 
-	statement, err := database.Prepare("CREATE TABLE IF NOT EXISTS commands (id INTEGER PRIMARY KEY, trigger TEXT UNIQUE, payload TEXT)")
+	statement, err := database.Prepare("CREATE TABLE IF NOT EXISTS commands (id INTEGER PRIMARY KEY, trigger TEXT UNIQUE, payload TEXT, permission TEXT)")
 	if err != nil {
 		panic(err)
 	}
@@ -91,12 +104,10 @@ func DBCommandSelect(trigger, channelName string) string {
 		panic(err)
 	}
 
-	fmt.Println("Before DB Query with statement: ", selectStatement)
 	rows, err := database.Query(selectStatement)
 	if err != nil {
 		panic(err)
 	}
-	fmt.Println("After DB Query")
 
 	var payload string
 	for rows.Next() {
@@ -120,6 +131,28 @@ func DBCommandInsert(trigger, payload, channelName string) string {
 	statement.Exec(trigger, payload)
 
 	return "Command " + trigger + " added succesfully."
+}
+
+func DBCommandRemove(trigger, channelName string) string {
+	dbname := "./" + channelName + ".db"
+	database, err := sql.Open("sqlite3", dbname)
+	if err != nil {
+		panic(err)
+	}
+
+	statement, err := database.Prepare("DELETE FROM commands WHERE trigger = '" + trigger + "';")
+	if err != nil {
+		panic(err)
+	}
+	statement.Exec()
+
+	return "Command " + trigger + " removed succesfully."
+}
+
+func FormatResponse(payload string, message twitch.PrivateMessage) string {
+	formatted := strings.ReplaceAll(payload, "{user}", message.User.DisplayName)
+
+	return formatted
 }
 
 func main() {
@@ -155,8 +188,7 @@ func main() {
 		if re.MatchString(message.Message) {
 			fmt.Println("##Possible Command detected!##")
 			target := message.Channel
-			command := DoCommand(message.Message, channels[target], re)
-			fmt.Printf("Command is: %v", command)
+			command := DoCommand(message, channels[target], re)
 			client.Say(target, command)
 		}
 	})
