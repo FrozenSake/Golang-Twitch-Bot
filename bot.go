@@ -16,8 +16,8 @@ import (
 
 const (
 	oauthForm = "oauth:"
-	// First group is command, second group is payload
-	commandRegex = "^!(\\S+) ?(.*)"
+	// First group is command, second group is optional permission, third group is options
+	commandRegex = "^!(?P<trigger>\\S+) ?(?P<permission>\\+[emb])? ?(?P<options>.*)"
 )
 
 var (
@@ -51,25 +51,38 @@ func OauthCheck() {
 }
 
 func DoCommand(message twitch.PrivateMessage, ch broadcaster, re *regexp.Regexp) string {
+
+	///// REWORK TO INCLUDE command permission options structure.
 	command := message.Message
 	submatch := re.FindStringSubmatch(command)
 	trigger := strings.ToLower(submatch[1])
 	options := submatch[2]
 	var result string
 
+	userLevel := message.User.Badges
+
 	if trigger == "addcommand" {
 		submatch = re.FindStringSubmatch(options)
 		newTrigger := submatch[1]
 		newOptions := submatch[2]
-		result = DBCommandInsert(newTrigger, newOptions, ch.name)
+		result = CommandDBInsert(newTrigger, newOptions, ch.name)
 	} else if trigger == "removecommand" {
 		submatch = re.FindStringSubmatch(options)
 		deleteTrigger := submatch[1]
-		result = DBCommandRemove(deleteTrigger, ch.name)
+		result = CommandDBRemove(deleteTrigger, ch.name)
 	} else {
-		result = DBCommandSelect(trigger, ch.name)
+		result, permission := CommandDBSelect(trigger, ch.name)
 		if result == "" {
 			result = "No " + trigger + " command."
+		}
+		if userLevel["Moderater"] == 1 {
+			if permission == "b" {
+				result = "Sorry, you're not authorized to use this command {user}."
+			}
+		} else {
+			if permission == "b" || permission == "m" {
+				result = "Sorry, you're not authorized to use this command {user}."
+			}
 		}
 	}
 
@@ -78,7 +91,16 @@ func DoCommand(message twitch.PrivateMessage, ch broadcaster, re *regexp.Regexp)
 	return result
 }
 
-func DBPrepare(channelName string) *sql.DB {
+func FormatResponse(payload string, message twitch.PrivateMessage) string {
+	formatted := strings.ReplaceAll(payload, "{user}", message.User.DisplayName)
+	formatted := strings.ReplaceAll(payload, "{target}", "{target}")
+
+	return formatted
+}
+
+/* Commands Table Interactions */
+
+func CommandDBPrepare(channelName string) *sql.DB {
 	dbname := "./" + channelName + ".db"
 
 	database, err := sql.Open("sqlite3", dbname)
@@ -86,7 +108,7 @@ func DBPrepare(channelName string) *sql.DB {
 		panic(err)
 	}
 
-	statement, err := database.Prepare("CREATE TABLE IF NOT EXISTS commands (id INTEGER PRIMARY KEY, trigger TEXT UNIQUE, payload TEXT, permission TEXT)")
+	statement, err := database.Prepare("CREATE TABLE IF NOT EXISTS commands (id INTEGER PRIMARY KEY, trigger TEXT UNIQUE, payload TEXT, permission TEXT, cooldown INTEGER, uses INTEGER)")
 	if err != nil {
 		panic(err)
 	}
@@ -95,9 +117,9 @@ func DBPrepare(channelName string) *sql.DB {
 	return database
 }
 
-func DBCommandSelect(trigger, channelName string) string {
+func CommandDBSelect(trigger, channelName string) (string, string) {
 	dbname := "./" + channelName + ".db"
-	selectStatement := "SELECT payload FROM commands WHERE trigger = '" + trigger + "';"
+	selectStatement := "SELECT payload, permission FROM commands WHERE trigger = '" + trigger + "';"
 
 	database, err := sql.Open("sqlite3", dbname)
 	if err != nil {
@@ -110,14 +132,15 @@ func DBCommandSelect(trigger, channelName string) string {
 	}
 
 	var payload string
+	var permission string
 	for rows.Next() {
-		rows.Scan(&payload)
+		rows.Scan(&payload, &permission)
 	}
 
-	return payload
+	return payload, permission
 }
 
-func DBCommandInsert(trigger, payload, channelName string) string {
+func CommandDBInsert(trigger, payload, channelName string) string {
 	dbname := "./" + channelName + ".db"
 	database, err := sql.Open("sqlite3", dbname)
 	if err != nil {
@@ -133,7 +156,7 @@ func DBCommandInsert(trigger, payload, channelName string) string {
 	return "Command " + trigger + " added succesfully."
 }
 
-func DBCommandRemove(trigger, channelName string) string {
+func CommandDBRemove(trigger, channelName string) string {
 	dbname := "./" + channelName + ".db"
 	database, err := sql.Open("sqlite3", dbname)
 	if err != nil {
@@ -149,11 +172,21 @@ func DBCommandRemove(trigger, channelName string) string {
 	return "Command " + trigger + " removed succesfully."
 }
 
-func FormatResponse(payload string, message twitch.PrivateMessage) string {
-	formatted := strings.ReplaceAll(payload, "{user}", message.User.DisplayName)
+/* User/Viewer Table Interactions */
 
-	return formatted
+func UserDBPrepare(channelName string) *sql.DB {
+	// User table fields: Name, aliases, streams visited, last seen, watchtime, status, streamer BOOL, streamlink/shoutout
 }
+
+func UserDBSelect() {
+
+}
+
+func UserDBInsert() {
+
+}
+
+/* Run */
 
 func main() {
 
@@ -178,7 +211,7 @@ func main() {
 		fmt.Printf("##USERLIST FOR %v##\n", channelName)
 		userlist, _ := client.Userlist(channelName)
 		fmt.Printf("Users: %v\n", userlist)
-		DB := DBPrepare(channelName)
+		DB := CommandDBPrepare(channelName)
 		bc := broadcaster{name: channelName, database: DB}
 		channels[channelName] = bc
 	}
