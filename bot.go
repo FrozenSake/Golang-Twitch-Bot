@@ -128,10 +128,7 @@ func CommandDBSelect(trigger, channelName string) (string, string) {
 	dbname := "./" + channelName + ".db"
 	selectStatement := "SELECT payload, permission FROM commands WHERE trigger = '" + trigger + "';"
 
-	database, err := sql.Open("sqlite3", dbname)
-	if err != nil {
-		panic(err)
-	}
+	database := DBConnect(dbname)
 
 	rows, err := database.Query(selectStatement)
 	if err != nil {
@@ -149,10 +146,8 @@ func CommandDBSelect(trigger, channelName string) (string, string) {
 
 func CommandDBInsert(trigger, payload, channelName string) string {
 	dbname := "./" + channelName + ".db"
-	database, err := sql.Open("sqlite3", dbname)
-	if err != nil {
-		panic(err)
-	}
+
+	database := DBConnect(dbname)
 
 	statement, err := database.Prepare("INSERT INTO commands (trigger, payload) VALUES (?, ?)")
 	if err != nil {
@@ -165,10 +160,8 @@ func CommandDBInsert(trigger, payload, channelName string) string {
 
 func CommandDBRemove(trigger, channelName string) string {
 	dbname := "./" + channelName + ".db"
-	database, err := sql.Open("sqlite3", dbname)
-	if err != nil {
-		panic(err)
-	}
+
+	database := DBConnect(dbname)
 
 	statement, err := database.Prepare("DELETE FROM commands WHERE trigger = '" + trigger + "';")
 	if err != nil {
@@ -196,12 +189,20 @@ func UserDBPrepare(channelName string) *sql.DB {
 	return database
 }
 
-func UserDBSelect() {
+func UserDBSelect(channelName string) {
+	dbname := "./" + channelName + ".db"
 
+	database := DBConnect(dbname)
+
+	fmt.Printf("%v\n", database)
 }
 
-func UserDBInsert() {
+func UserDBInsert(channelName string) {
+	dbname := "./" + channelName + ".db"
 
+	database := DBConnect(dbname)
+
+	fmt.Printf("%v\n", database)
 }
 
 /* Run */
