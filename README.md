@@ -5,8 +5,8 @@ This bot uses a few environment variables currently. Create a file called ".env"
 
 Then, load it up with:
 
-oauth=<OUATH KEY>
-username=<BOT USERNAME>
-channels=<COMMA SEPERATED CHANNELS TO JOIN>
-clientID=<CLIENT ID FROM TWITCH API
-clientSecret=<CLIENT SECRET FROM TWITCH API>
+oauth=[OUATH KEY]
+username=[BOT USERNAME]
+channels=[COMMA SEPERATED CHANNELS TO JOIN]
+clientID=[CLIENT ID FROM TWITCH API]
+clientSecret=[CLIENT SECRET FROM TWITCH API]
