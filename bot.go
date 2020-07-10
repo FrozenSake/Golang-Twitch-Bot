@@ -93,9 +93,19 @@ func DoCommand(message twitch.PrivateMessage, ch broadcaster, re *regexp.Regexp)
 
 func FormatResponse(payload string, message twitch.PrivateMessage) string {
 	formatted := strings.ReplaceAll(payload, "{user}", message.User.DisplayName)
-	formatted := strings.ReplaceAll(payload, "{target}", "{target}")
+	formatted = strings.ReplaceAll(payload, "{target}", "{target}")
 
 	return formatted
+}
+
+/* DB Functions */
+
+func DBConnect(db string) *sql.DB {
+	database, err := sql.Open("sqlite3", db)
+	if err != nil {
+		panic(err)
+	}
+	return database
 }
 
 /* Commands Table Interactions */
@@ -103,10 +113,7 @@ func FormatResponse(payload string, message twitch.PrivateMessage) string {
 func CommandDBPrepare(channelName string) *sql.DB {
 	dbname := "./" + channelName + ".db"
 
-	database, err := sql.Open("sqlite3", dbname)
-	if err != nil {
-		panic(err)
-	}
+	database := DBConnect(dbname)
 
 	statement, err := database.Prepare("CREATE TABLE IF NOT EXISTS commands (id INTEGER PRIMARY KEY, trigger TEXT UNIQUE, payload TEXT, permission TEXT, cooldown INTEGER, uses INTEGER)")
 	if err != nil {
@@ -176,6 +183,17 @@ func CommandDBRemove(trigger, channelName string) string {
 
 func UserDBPrepare(channelName string) *sql.DB {
 	// User table fields: Name, aliases, streams visited, last seen, watchtime, status, streamer BOOL, streamlink/shoutout
+	dbname := "./" + channelName + ".db"
+
+	database := DBConnect(dbname)
+
+	statement, err := database.Prepare("CREATE TABLE IF NOT EXISTS user (id INTEGER PRIMARY KEY, name TEXT, aliases BLOB, lastseen TEXT, streamsvisited INTEGER, watchtime INTEGER, streamer BOOL, streamlink TEXT)")
+	if err != nil {
+		panic(err)
+	}
+	statement.Exec()
+
+	return database
 }
 
 func UserDBSelect() {
