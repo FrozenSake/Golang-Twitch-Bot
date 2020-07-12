@@ -53,42 +53,65 @@ func OauthCheck() {
 func DoCommand(message twitch.PrivateMessage, ch broadcaster, re *regexp.Regexp) string {
 
 	///// REWORK TO INCLUDE command permission options structure.
-	command := message.Message
+	command := strings.ToLower(message.Message)
 	submatch := re.FindStringSubmatch(command)
-	trigger := strings.ToLower(submatch[1])
-	options := submatch[2]
+	trigger := submatch[1]
+	level := submatch[2]
+	options := submatch[3]
 	var result string
 
-	userLevel := message.User.Badges
+	userBadges := message.User.Badges
+	var userLevel string
+	if userBadges["Broadcaster"] == 1 {
+		userLevel = "b"
+	} else if userBadges["Moderater"] == 1 {
+		userLevel = "m"
+	} else {
+		userLevel = ""
+	}
 
 	if trigger == "addcommand" {
-		submatch = re.FindStringSubmatch(options)
-		newTrigger := submatch[1]
-		newOptions := submatch[2]
-		result = CommandDBInsert(newTrigger, newOptions, ch.name)
+		permission := "m"
+		if !AuthorizeCommand(userLevel, permission) {
+			result = "Sorry, you're not authorized to use this command {user}."
+		} else {
+			submatch = re.FindStringSubmatch(options)
+			newTrigger := submatch[1]
+			newOptions := submatch[2]
+			result = CommandDBInsert(newTrigger, newOptions, level, ch.name, 0)
+		}
 	} else if trigger == "removecommand" {
-		submatch = re.FindStringSubmatch(options)
-		deleteTrigger := submatch[1]
-		result = CommandDBRemove(deleteTrigger, ch.name)
+		permission := "m"
+		if !AuthorizeCommand(userLevel, permission) {
+			result = "Sorry, you're not authorized to use this command {user}."
+		} else {
+			submatch = re.FindStringSubmatch(options)
+			deleteTrigger := submatch[1]
+			result = CommandDBRemove(deleteTrigger, ch.name)
+		}
 	} else {
 		result, permission := CommandDBSelect(trigger, ch.name)
 		if result == "" {
 			result = "No " + trigger + " command."
 		}
-		if userLevel["Moderater"] == 1 {
-			if permission == "b" {
-				result = "Sorry, you're not authorized to use this command {user}."
-			}
-		} else {
-			if permission == "b" || permission == "m" {
-				result = "Sorry, you're not authorized to use this command {user}."
-			}
+		if !AuthorizeCommand(userLevel, permission) {
+			result = "Sorry, you're not authorized to use this command {user}."
 		}
 	}
 
 	result = FormatResponse(result, message)
 
 	return result
+}
+
+func AuthorizeCommand(userLevel, permissionLevel string) bool {
+	if permissionLevel == "b" && userLevel != "b" {
+		return false
+	} else if permissionLevel == "m" && (userLevel != "b" && userLevel != "m") {
+		return false
+	} else {
+		return true
+	}
 }
 
 func FormatResponse(payload string, message twitch.PrivateMessage) string {
@@ -144,16 +167,16 @@ func CommandDBSelect(trigger, channelName string) (string, string) {
 	return payload, permission
 }
 
-func CommandDBInsert(trigger, payload, channelName string) string {
+func CommandDBInsert(trigger, payload, permission, channelName string, cooldown int) string {
 	dbname := "./" + channelName + ".db"
 
 	database := DBConnect(dbname)
 
-	statement, err := database.Prepare("INSERT INTO commands (trigger, payload) VALUES (?, ?)")
+	statement, err := database.Prepare("INSERT INTO commands (trigger, payload, permission, cooldown) VALUES (?, ?, ?, ?)")
 	if err != nil {
 		panic(err)
 	}
-	statement.Exec(trigger, payload)
+	statement.Exec(trigger, payload, permission, cooldown)
 
 	return "Command " + trigger + " added succesfully."
 }
