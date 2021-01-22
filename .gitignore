@@ -35,3 +35,7 @@ authorized_keys
 id_rsa
 .env
 *.tfvars
+
+# Initializations #
+###################
+.terraform/
