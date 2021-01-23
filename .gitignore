@@ -35,6 +35,7 @@ authorized_keys
 id_rsa
 .env
 *.tfvars
+*.tfstate*
 
 # Initializations #
 ###################
