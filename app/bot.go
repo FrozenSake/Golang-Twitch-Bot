@@ -120,13 +120,12 @@ func FormatResponse(payload string, message twitch.PrivateMessage) string {
 
 func main() {
 	botDB := BotDBPrepare()
+	BotDBMainTablesPrepare(botDB)
+	BotDBBroadcasterAdd("hikthur", botDB)
 
-	username = goDotEnvVariable("username")
-	oauth = goDotEnvVariable("oauth")
-	targetsLoad := goDotEnvVariable("channels")
-	fmt.Println(targets)
-	targets := strings.Split(targetsLoad, ",")
-	fmt.Println(targets)
+	targets := strings.Split(BotDBBroadcasterList(botDB), ";")
+	username = os.Getenv("BOT_USERNAME")
+	oauth = os.Getenv("BOT_OAUTH")
 
 	OauthCheck()
 	channels = make(map[string]broadcaster)
@@ -140,7 +139,10 @@ func main() {
 		channelName = strings.ToLower(channelName)
 		client.Join(channelName)
 		fmt.Printf("##USERLIST FOR %v##\n", channelName)
-		userlist, _ := client.Userlist(channelName)
+		userlist, err := client.Userlist(channelName)
+		if err != nil {
+			fmt.Printf("Encountered error listing users: %v", err)
+		}
 		fmt.Printf("Users: %v\n", userlist)
 		DB := ChannelDBPrepare(botDB, channelName)
 		bc := broadcaster{name: channelName, database: DB}
