@@ -8,7 +8,7 @@ RUN go install -v ./...
 
 FROM golang:1.14 as runner
 
-WORKDIR /go/src/chatbot
+WORKDIR /go/bin/
 COPY --from=builder /go/bin/golang-twitch-bot .
 
-CMD ["golang-twitch-bot"]
+CMD ["/go/bin/golang-twitch-bot"]
