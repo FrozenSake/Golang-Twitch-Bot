@@ -121,6 +121,8 @@ func DBConnect(dbEndpoint string, awsRegion string, dbUser string, dbName string
 	return db, err
 }
 
+/* Bot DB */
+
 func BotDBPrepare() *sql.DB {
 	// https://docs.aws.amazon.com/sdk-for-go/api/aws/credentials/#EnvProvider
 	creds := credentials.NewEnvCredentials()
@@ -136,6 +138,60 @@ func BotDBPrepare() *sql.DB {
 
 	return db
 }
+
+func BotDBMainTablesPrepare(db *sql.DB) {
+	statement, err := db.Prepare("CREATE TABLE IF NOT EXISTS broadcasters (id INTERGER PRIMARY KEY, channelname TEXT UNIQUE)")
+	if err != nil {
+		handleSQLError(err)
+	}
+	statement.Exec()
+}
+
+func BotDBBroadcasterList(db *sql.DB) string {
+	rows, err := db.Query("SELECT channelname FROM broadcasters")
+	if err != nil {
+		handleSQLError(err)
+	}
+	defer rows.Close()
+
+	var result string
+	for rows.Next() {
+		var (
+			channelName string
+		)
+		if err := rows.Scan(&channelName); err != nil {
+			handleSQLError(err)
+		}
+		result += channelName + ";"
+	}
+
+	result = strings.TrimRight(result, ";")
+	return result
+}
+
+func BotDBBroadcasterAdd(broadcaster string, db *sql.DB) {
+	insertStatement := "INSERT INTO broadcasters (channelname) VALUES ('" + broadcaster + "') ON CONFLICT (channelname) DO NOTHING;"
+
+	statement, err := db.Prepare(insertStatement)
+	if err != nil {
+		handleSQLError(err)
+	}
+	defer statement.Close()
+	statement.Exec()
+}
+
+func BotDBBroadcasterRemove(broadcaster string, db *sql.DB) {
+	deleteStatement := "DELETE FROM broadcasters WHERE channelname = '" + broadcaster + "';"
+
+	statement, err := db.Prepare(deleteStatement)
+	if err != nil {
+		handleSQLError(err)
+	}
+	defer statement.Close()
+	statement.Exec()
+}
+
+/* Channel DB */
 
 func ChannelDBPrepare(botDB *sql.DB, channelName string) *sql.DB {
 	creds := credentials.NewEnvCredentials()
@@ -165,6 +221,7 @@ func CommandTablePrepare(db *sql.DB) {
 	if err != nil {
 		handleSQLError(err)
 	}
+	defer statement.Close()
 	statement.Exec()
 }
 
@@ -175,6 +232,7 @@ func CommandDBSelect(trigger string, db *sql.DB) (string, string) {
 	if err != nil {
 		panic(err)
 	}
+	defer rows.Close()
 
 	var payload string
 	var permission string
@@ -190,6 +248,7 @@ func CommandDBInsert(trigger string, payload string, permission string, db *sql.
 	if err != nil {
 		panic(err)
 	}
+	defer statement.Close()
 	statement.Exec(trigger, payload, permission, cooldown)
 
 	return "Command " + trigger + " added succesfully."
@@ -200,6 +259,7 @@ func CommandDBRemove(trigger string, db *sql.DB) string {
 	if err != nil {
 		panic(err)
 	}
+	defer statement.Close()
 	statement.Exec()
 
 	return "Command " + trigger + " removed succesfully."
@@ -209,11 +269,11 @@ func CommandDBRemove(trigger string, db *sql.DB) string {
 
 func UserDBPrepare(db *sql.DB) {
 	// User table fields: Name, aliases, streams visited, last seen, watchtime, status, streamer BOOL, streamlink/shoutout
-
 	statement, err := db.Prepare("CREATE TABLE IF NOT EXISTS user (id INTEGER PRIMARY KEY, name TEXT, aliases BLOB, lastseen TEXT, streamsvisited INTEGER, watchtime INTEGER, streamer BOOL, streamlink TEXT)")
 	if err != nil {
 		panic(err)
 	}
+	defer statement.Close()
 	statement.Exec()
 }
 
