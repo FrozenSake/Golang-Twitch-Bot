@@ -12,6 +12,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/rds"
 	"github.com/gempir/go-twitch-irc/v2"
 	_ "github.com/mattn/go-sqlite3"
+	"go.uber.org/zap"
 )
 
 const (
@@ -39,55 +40,57 @@ func handleAWSError(err error) {
 	if aerr, ok := err.(awserr.Error); ok {
 		switch aerr.Code() {
 		case rds.ErrCodeDBInstanceAlreadyExistsFault:
-			fmt.Println(rds.ErrCodeDBInstanceAlreadyExistsFault, aerr.Error())
+			zap.S().Errorf(rds.ErrCodeDBInstanceAlreadyExistsFault, aerr.Error())
 		case rds.ErrCodeInsufficientDBInstanceCapacityFault:
-			fmt.Println(rds.ErrCodeInsufficientDBInstanceCapacityFault, aerr.Error())
+			zap.S().Errorf(rds.ErrCodeInsufficientDBInstanceCapacityFault, aerr.Error())
 		case rds.ErrCodeDBParameterGroupNotFoundFault:
-			fmt.Println(rds.ErrCodeDBParameterGroupNotFoundFault, aerr.Error())
+			zap.S().Errorf(rds.ErrCodeDBParameterGroupNotFoundFault, aerr.Error())
 		case rds.ErrCodeDBSecurityGroupNotFoundFault:
-			fmt.Println(rds.ErrCodeDBSecurityGroupNotFoundFault, aerr.Error())
+			zap.S().Errorf(rds.ErrCodeDBSecurityGroupNotFoundFault, aerr.Error())
 		case rds.ErrCodeInstanceQuotaExceededFault:
-			fmt.Println(rds.ErrCodeInstanceQuotaExceededFault, aerr.Error())
+			zap.S().Errorf(rds.ErrCodeInstanceQuotaExceededFault, aerr.Error())
 		case rds.ErrCodeStorageQuotaExceededFault:
-			fmt.Println(rds.ErrCodeStorageQuotaExceededFault, aerr.Error())
+			zap.S().Errorf(rds.ErrCodeStorageQuotaExceededFault, aerr.Error())
 		case rds.ErrCodeDBSubnetGroupNotFoundFault:
-			fmt.Println(rds.ErrCodeDBSubnetGroupNotFoundFault, aerr.Error())
+			zap.S().Errorf(rds.ErrCodeDBSubnetGroupNotFoundFault, aerr.Error())
 		case rds.ErrCodeDBSubnetGroupDoesNotCoverEnoughAZs:
-			fmt.Println(rds.ErrCodeDBSubnetGroupDoesNotCoverEnoughAZs, aerr.Error())
+			zap.S().Errorf(rds.ErrCodeDBSubnetGroupDoesNotCoverEnoughAZs, aerr.Error())
 		case rds.ErrCodeInvalidDBClusterStateFault:
-			fmt.Println(rds.ErrCodeInvalidDBClusterStateFault, aerr.Error())
+			zap.S().Errorf(rds.ErrCodeInvalidDBClusterStateFault, aerr.Error())
 		case rds.ErrCodeInvalidSubnet:
-			fmt.Println(rds.ErrCodeInvalidSubnet, aerr.Error())
+			zap.S().Errorf(rds.ErrCodeInvalidSubnet, aerr.Error())
 		case rds.ErrCodeInvalidVPCNetworkStateFault:
-			fmt.Println(rds.ErrCodeInvalidVPCNetworkStateFault, aerr.Error())
+			zap.S().Errorf(rds.ErrCodeInvalidVPCNetworkStateFault, aerr.Error())
 		case rds.ErrCodeProvisionedIopsNotAvailableInAZFault:
-			fmt.Println(rds.ErrCodeProvisionedIopsNotAvailableInAZFault, aerr.Error())
+			zap.S().Errorf(rds.ErrCodeProvisionedIopsNotAvailableInAZFault, aerr.Error())
 		case rds.ErrCodeOptionGroupNotFoundFault:
-			fmt.Println(rds.ErrCodeOptionGroupNotFoundFault, aerr.Error())
+			zap.S().Errorf(rds.ErrCodeOptionGroupNotFoundFault, aerr.Error())
 		case rds.ErrCodeDBClusterNotFoundFault:
-			fmt.Println(rds.ErrCodeDBClusterNotFoundFault, aerr.Error())
+			zap.S().Errorf(rds.ErrCodeDBClusterNotFoundFault, aerr.Error())
 		case rds.ErrCodeStorageTypeNotSupportedFault:
-			fmt.Println(rds.ErrCodeStorageTypeNotSupportedFault, aerr.Error())
+			zap.S().Errorf(rds.ErrCodeStorageTypeNotSupportedFault, aerr.Error())
 		case rds.ErrCodeAuthorizationNotFoundFault:
-			fmt.Println(rds.ErrCodeAuthorizationNotFoundFault, aerr.Error())
+			zap.S().Errorf(rds.ErrCodeAuthorizationNotFoundFault, aerr.Error())
 		case rds.ErrCodeKMSKeyNotAccessibleFault:
-			fmt.Println(rds.ErrCodeKMSKeyNotAccessibleFault, aerr.Error())
+			zap.S().Errorf(rds.ErrCodeKMSKeyNotAccessibleFault, aerr.Error())
 		case rds.ErrCodeDomainNotFoundFault:
-			fmt.Println(rds.ErrCodeDomainNotFoundFault, aerr.Error())
+			zap.S().Errorf(rds.ErrCodeDomainNotFoundFault, aerr.Error())
 		case rds.ErrCodeBackupPolicyNotFoundFault:
-			fmt.Println(rds.ErrCodeBackupPolicyNotFoundFault, aerr.Error())
+			zap.S().Errorf(rds.ErrCodeBackupPolicyNotFoundFault, aerr.Error())
 		default:
-			fmt.Println(aerr.Error())
+			zap.S().Errorf(aerr.Error())
 		}
 	} else {
 		// Print the error, cast err to awserr.Error to get the Code and
 		// Message from an error.
-		fmt.Println(err.Error())
+		zap.S().Errorf(err.Error())
 	}
 }
 
 func OauthCheck() {
+	zap.S().Debug("Checking OAuth Format")
 	if oauth[:6] != oauthForm {
+		zap.S().Debug("Fixing OAuth Format")
 		oauth = oauthForm + oauth
 	}
 }
@@ -104,13 +107,22 @@ func FormatResponse(payload string, message twitch.PrivateMessage) string {
 /* Run */
 
 func main() {
+	sugar, _ := zap.NewDevelopment()
+	defer sugar.Sync()
+
+	zap.ReplaceGlobals(sugar)
+
+	zap.S().Info("Twitch Chatbot Starting up.")
+
+	zap.S().Info("Begin BotDB Preparation Stack.")
 	botDB := BotDBPrepare()
 	BotDBMainTablesPrepare(botDB)
 	BotDBBroadcasterAdd("hikthur", botDB)
+	zap.S().Info("BotDB Preparation Stack Complete.")
 
-	region := os.Getenv("AWS_REGION")
-
+	zap.S().Debug("Setting Environment Variables")
 	targets := strings.Split(BotDBBroadcasterList(botDB), ";")
+	region := os.Getenv("AWS_REGION")
 	username = getAWSSecret("bot-username", region)
 	oauth = getAWSSecret("bot-oauth", region)
 
@@ -120,17 +132,24 @@ func main() {
 	// Define a regex object
 	re := regexp.MustCompile(commandRegex)
 
+	zap.S().Infof("Connecting Twitch Client: %v", username)
 	client := twitch.NewClient(username, oauth)
 
+	zap.S().Info("Prepare channels")
 	for _, channelName := range targets {
 		channelName = strings.ToLower(channelName)
+		zap.S().Infof("Join channel %v", channelName)
 		client.Join(channelName)
-		fmt.Printf("##USERLIST FOR %v##\n", channelName)
+
+		zap.S().Debugf("##USERLIST FOR %v##\n", channelName)
 		userlist, err := client.Userlist(channelName)
 		if err != nil {
-			fmt.Printf("Encountered error listing users: %v", err)
+			zap.S().Errorf("Encountered error listing users: %v", err)
+			zap.S().Infof("Skipping to next channel")
+			continue
 		}
-		fmt.Printf("Users: %v\n", userlist)
+		zap.S().Debugf("Users: %v\n", userlist)
+
 		DB := ChannelDBPrepare(botDB, channelName)
 		bc := broadcaster{name: channelName, database: DB}
 		channels[channelName] = bc
@@ -139,7 +158,7 @@ func main() {
 	client.OnPrivateMessage(func(message twitch.PrivateMessage) {
 		fmt.Printf("%v - %v: %v\n", message.Channel, message.User.DisplayName, message.Message)
 		if re.MatchString(message.Message) {
-			fmt.Println("##Possible Command detected!##")
+			zap.S().Debugf("##Possible Command detected!##")
 			target := message.Channel
 			command := DoCommand(message, channels[target], re)
 			client.Say(target, command)
@@ -148,6 +167,7 @@ func main() {
 
 	err := client.Connect()
 	if err != nil {
+		zap.S().Errorf("Error connecting twitch client: %v", err)
 		panic(err)
 	}
 }

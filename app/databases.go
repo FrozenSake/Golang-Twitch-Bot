@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	_ "github.com/lib/pq"
+	"go.uber.org/zap"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
@@ -23,6 +24,7 @@ const dbType = "postgres"
 /* Secrets */
 
 func getAWSSecret(secretName, region string) string {
+	zap.S().Infof("Getting AWS Secret: %v", secretName)
 	env := os.Getenv("ENV")
 	serviceName := os.Getenv("SVCNAME")
 
@@ -48,6 +50,7 @@ func getAWSSecret(secretName, region string) string {
 /* Commands */
 
 func DoCommand(message twitch.PrivateMessage, ch broadcaster, re *regexp.Regexp) string {
+	zap.S().Debugf("Executing a command")
 
 	///// REWORK TO INCLUDE command permission options structure.
 	command := strings.ToLower(message.Message)
@@ -102,6 +105,7 @@ func DoCommand(message twitch.PrivateMessage, ch broadcaster, re *regexp.Regexp)
 }
 
 func AuthorizeCommand(userLevel, permissionLevel string) bool {
+	zap.S().Debugf("Authorizing a command")
 	if permissionLevel == "b" && userLevel != "b" {
 		return false
 	} else if permissionLevel == "m" && (userLevel != "b" && userLevel != "m") {
@@ -114,10 +118,11 @@ func AuthorizeCommand(userLevel, permissionLevel string) bool {
 /* DB Functions */
 
 func handleSQLError(err error) {
-	fmt.Printf("SQL error: %v", err)
+	zap.S().Errorf("SQL error: %v", err)
 }
 
 func DBConnect(dbEndpoint, dbUser, dbPassword, dbName, dbType string) (*sql.DB, error) {
+	zap.S().Infof("Creating a DB Connection")
 	dsn := fmt.Sprintf("postgres://%v/%v?sslmode=disable",
 		dbEndpoint,
 		dbName)
@@ -128,6 +133,8 @@ func DBConnect(dbEndpoint, dbUser, dbPassword, dbName, dbType string) (*sql.DB, 
 		panic(1)
 	}
 
+	zap.S().Infof("DB Url (no user): %v", u.String())
+
 	u.User = url.UserPassword(dbUser, dbPassword)
 	db, err := sql.Open(dbType, u.String())
 
@@ -137,6 +144,7 @@ func DBConnect(dbEndpoint, dbUser, dbPassword, dbName, dbType string) (*sql.DB, 
 /* Bot DB */
 
 func BotDBPrepare() *sql.DB {
+	zap.S().Infof("Preparing the bot DB")
 	awsRegion := os.Getenv("AWS_REGION")
 	endpoint := getAWSSecret("db-endpoint", awsRegion)
 	dbUser := getAWSSecret("db-user", awsRegion)
@@ -152,6 +160,7 @@ func BotDBPrepare() *sql.DB {
 }
 
 func BotDBMainTablesPrepare(db *sql.DB) {
+	zap.S().Info("Preparing the bot DB broadcasters table")
 	statement, err := db.Prepare("CREATE TABLE IF NOT EXISTS broadcasters (id INTEGER PRIMARY KEY, channelname TEXT UNIQUE);")
 	if err != nil {
 		handleSQLError(err)
@@ -160,6 +169,7 @@ func BotDBMainTablesPrepare(db *sql.DB) {
 }
 
 func BotDBBroadcasterList(db *sql.DB) string {
+	zap.S().Info("Listing broadcasters")
 	rows, err := db.Query("SELECT channelname FROM broadcasters")
 	if err != nil {
 		handleSQLError(err)
@@ -182,6 +192,7 @@ func BotDBBroadcasterList(db *sql.DB) string {
 }
 
 func BotDBBroadcasterAdd(broadcaster string, db *sql.DB) {
+	zap.S().Info("Adding a new broadcaster")
 	insertStatement := "INSERT INTO broadcasters (channelname) VALUES ('" + broadcaster + "') ON CONFLICT (channelname) DO NOTHING;"
 
 	statement, err := db.Prepare(insertStatement)
@@ -193,6 +204,7 @@ func BotDBBroadcasterAdd(broadcaster string, db *sql.DB) {
 }
 
 func BotDBBroadcasterRemove(broadcaster string, db *sql.DB) {
+	zap.S().Info("Removing a broadcaster")
 	deleteStatement := "DELETE FROM broadcasters WHERE channelname = '" + broadcaster + "';"
 
 	statement, err := db.Prepare(deleteStatement)
@@ -206,12 +218,14 @@ func BotDBBroadcasterRemove(broadcaster string, db *sql.DB) {
 /* Channel DB */
 
 func ChannelDBPrepare(botDB *sql.DB, channelName string) *sql.DB {
+	zap.S().Infof("Preparing the %v channel DB", channelName)
 	awsRegion := os.Getenv("AWS_REGION")
 	dbUser := getAWSSecret("db-user", awsRegion)
 	dbEndpoint := getAWSSecret("db-endpoint", awsRegion)
 	dbPassword := getAWSSecret("db-password", awsRegion)
 	database, err := DBConnect(dbEndpoint, dbUser, dbPassword, channelName, dbType)
 	if err != nil {
+		zap.S().Info("The DB didn't exist yet, creating.")
 		command := fmt.Sprintf("CREATE DATABASE %s;", channelName)
 		statement, err := botDB.Prepare(command)
 		if err != nil {
@@ -219,7 +233,11 @@ func ChannelDBPrepare(botDB *sql.DB, channelName string) *sql.DB {
 			return nil
 		}
 		statement.Exec()
+		zap.S().Info("Retrying connection")
 		database, err = DBConnect(dbEndpoint, dbUser, dbPassword, channelName, dbType)
+		if err != nil {
+			handleSQLError(err)
+		}
 	}
 	CommandTablePrepare(database)
 	UserDBPrepare(database)
@@ -229,6 +247,7 @@ func ChannelDBPrepare(botDB *sql.DB, channelName string) *sql.DB {
 /* Commands Table Interactions */
 
 func CommandTablePrepare(db *sql.DB) {
+	zap.S().Infof("Preparing the command table on a DB")
 	statement, err := db.Prepare("CREATE TABLE IF NOT EXISTS commands (id INTEGER PRIMARY KEY, trigger TEXT UNIQUE, payload TEXT, permission TEXT, cooldown INTEGER, uses INTEGER);")
 	if err != nil {
 		handleSQLError(err)
@@ -238,6 +257,7 @@ func CommandTablePrepare(db *sql.DB) {
 }
 
 func CommandDBSelect(trigger string, db *sql.DB) (string, string) {
+	zap.S().Debugf("Triggering command: %v", trigger)
 	selectStatement := "SELECT payload, permission FROM commands WHERE trigger = '" + trigger + "';"
 
 	rows, err := db.Query(selectStatement)
@@ -256,6 +276,7 @@ func CommandDBSelect(trigger string, db *sql.DB) (string, string) {
 }
 
 func CommandDBInsert(trigger string, payload string, permission string, db *sql.DB, cooldown int) string {
+	zap.S().Info("Adding a command")
 	statement, err := db.Prepare("INSERT INTO commands (trigger, payload, permission, cooldown) VALUES (?, ?, ?, ?);")
 	if err != nil {
 		panic(err)
@@ -267,6 +288,7 @@ func CommandDBInsert(trigger string, payload string, permission string, db *sql.
 }
 
 func CommandDBRemove(trigger string, db *sql.DB) string {
+	zap.S().Info("Removing a command")
 	statement, err := db.Prepare("DELETE FROM commands WHERE trigger = '" + trigger + "';")
 	if err != nil {
 		panic(err)
@@ -280,6 +302,7 @@ func CommandDBRemove(trigger string, db *sql.DB) string {
 /* User/Viewer Table Interactions */
 
 func UserDBPrepare(db *sql.DB) {
+	zap.S().Info("Preparing the User DB for a channel")
 	// User table fields: Name, aliases, streams visited, last seen, watchtime, status, streamer BOOL, streamlink/shoutout
 	statement, err := db.Prepare("CREATE TABLE IF NOT EXISTS channelusers (id INTEGER PRIMARY KEY, name TEXT, aliases BLOB, lastseen TEXT, streamsvisited INTEGER, watchtime INTEGER, streamer BOOL, streamlink TEXT)")
 	if err != nil {
@@ -290,9 +313,11 @@ func UserDBPrepare(db *sql.DB) {
 }
 
 func UserDBSelect(db *sql.DB) {
+	zap.S().Info("Selecting from the user DB")
 	fmt.Printf("%v\n", db)
 }
 
 func UserDBInsert(db *sql.DB) {
+	zap.S().Info("Inserting into the User DB")
 	fmt.Printf("%v\n", db)
 }

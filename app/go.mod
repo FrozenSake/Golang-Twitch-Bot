@@ -9,6 +9,7 @@ require (
 	github.com/joho/godotenv v1.3.0
 	github.com/lib/pq v1.3.0
 	github.com/mattn/go-sqlite3 v1.14.0
+	go.uber.org/zap v1.10.0
 	golang.org/x/net v0.0.0-20200927032502-5d4f70055728 // indirect
 	golang.org/x/text v0.3.3 // indirect
 )
