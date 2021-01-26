@@ -161,7 +161,7 @@ func BotDBPrepare() *sql.DB {
 
 func BotDBMainTablesPrepare(db *sql.DB) {
 	zap.S().Info("Preparing the bot DB broadcasters table")
-	statement, err := db.Prepare("CREATE TABLE IF NOT EXISTS broadcasters (channelname TEXT PRIMARY KEY);")
+	statement, err := db.Prepare("CREATE TABLE IF NOT EXISTS broadcasters (channelname TEXT PRIMARY KEY, dbcreated BOOL);")
 	if err != nil {
 		handleSQLError(err)
 	}
@@ -193,7 +193,7 @@ func BotDBBroadcasterList(db *sql.DB) string {
 
 func BotDBBroadcasterAdd(broadcaster string, db *sql.DB) {
 	zap.S().Info("Adding a new broadcaster")
-	insertStatement := "INSERT INTO broadcasters (channelname) VALUES ('" + broadcaster + "') ON CONFLICT (channelname) DO NOTHING;"
+	insertStatement := "INSERT INTO broadcasters (channelname, dbcreated) VALUES ('" + broadcaster + "', false) ON CONFLICT (channelname) DO NOTHING;"
 
 	statement, err := db.Prepare(insertStatement)
 	if err != nil {
@@ -201,6 +201,24 @@ func BotDBBroadcasterAdd(broadcaster string, db *sql.DB) {
 	}
 	defer statement.Close()
 	statement.Exec()
+
+	zap.S().Info("Checking if broadcaster is new / has a DB already")
+	rows, err := db.Query("SELECT dbcreated FROM broadcasters WHERE channelname=" + broadcaster)
+	if err != nil {
+		handleSQLError(err)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var dbcreated bool
+		if err := rows.Scan(&dbcreated); err != nil {
+			handleSQLError(err)
+		}
+		if dbcreated == false {
+			zap.S().Infof("dbcreated for %v is false", broadcaster)
+			ChannelDBPrepare(db, broadcaster)
+		}
+	}
+
 }
 
 func BotDBBroadcasterRemove(broadcaster string, db *sql.DB) {
@@ -217,30 +235,41 @@ func BotDBBroadcasterRemove(broadcaster string, db *sql.DB) {
 
 /* Channel DB */
 
-func ChannelDBPrepare(botDB *sql.DB, channelName string) *sql.DB {
+func ChannelDBPrepare(botDB *sql.DB, channelName string) {
 	zap.S().Infof("Preparing the %v channel DB", channelName)
 	awsRegion := os.Getenv("AWS_REGION")
 	dbUser := getAWSSecret("db-user", awsRegion)
 	dbEndpoint := getAWSSecret("db-endpoint", awsRegion)
 	dbPassword := getAWSSecret("db-password", awsRegion)
+	command := fmt.Sprintf("CREATE DATABASE %s;", channelName)
+	statement, err := botDB.Prepare(command)
+	if err != nil {
+		handleSQLError(err)
+	}
+	statement.Exec()
+
+	zap.S().Info("Creating new DB conenction")
 	database, err := DBConnect(dbEndpoint, dbUser, dbPassword, channelName, dbType)
 	if err != nil {
-		zap.S().Info("The DB didn't exist yet, creating.")
-		command := fmt.Sprintf("CREATE DATABASE %s;", channelName)
-		statement, err := botDB.Prepare(command)
-		if err != nil {
-			handleSQLError(err)
-			return nil
-		}
-		statement.Exec()
-		zap.S().Info("Retrying connection")
-		database, err = DBConnect(dbEndpoint, dbUser, dbPassword, channelName, dbType)
-		if err != nil {
-			handleSQLError(err)
-		}
+		handleSQLError(err)
 	}
+	defer database.Close()
+
 	CommandTablePrepare(database)
 	UserDBPrepare(database)
+}
+
+func ChannelDBConnect(channelName string) *sql.DB {
+	awsRegion := os.Getenv("AWS_REGION")
+	dbUser := getAWSSecret("db-user", awsRegion)
+	dbEndpoint := getAWSSecret("db-endpoint", awsRegion)
+	dbPassword := getAWSSecret("db-password", awsRegion)
+
+	database, err := DBConnect(dbEndpoint, dbUser, dbPassword, channelName, dbType)
+	if err != nil {
+		handleSQLError(err)
+	}
+
 	return database
 }
 

@@ -150,7 +150,7 @@ func main() {
 		}
 		zap.S().Debugf("Users: %v\n", userlist)
 
-		DB := ChannelDBPrepare(botDB, channelName)
+		DB := ChannelDBConnect(channelName)
 		bc := broadcaster{name: channelName, database: DB}
 		channels[channelName] = bc
 	}
