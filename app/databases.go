@@ -152,7 +152,7 @@ func BotDBPrepare() *sql.DB {
 }
 
 func BotDBMainTablesPrepare(db *sql.DB) {
-	statement, err := db.Prepare("CREATE TABLE IF NOT EXISTS broadcasters (id INTERGER PRIMARY KEY, channelname TEXT UNIQUE)")
+	statement, err := db.Prepare("CREATE TABLE IF NOT EXISTS broadcasters (id INTEGER PRIMARY KEY, channelname TEXT UNIQUE);")
 	if err != nil {
 		handleSQLError(err)
 	}
@@ -212,7 +212,7 @@ func ChannelDBPrepare(botDB *sql.DB, channelName string) *sql.DB {
 	dbPassword := getAWSSecret("db-password", awsRegion)
 	database, err := DBConnect(dbEndpoint, dbUser, dbPassword, channelName, dbType)
 	if err != nil {
-		command := fmt.Sprintf("CREATE DATABASE %s", channelName)
+		command := fmt.Sprintf("CREATE DATABASE %s;", channelName)
 		statement, err := botDB.Prepare(command)
 		if err != nil {
 			handleSQLError(err)
@@ -229,7 +229,7 @@ func ChannelDBPrepare(botDB *sql.DB, channelName string) *sql.DB {
 /* Commands Table Interactions */
 
 func CommandTablePrepare(db *sql.DB) {
-	statement, err := db.Prepare("CREATE TABLE IF NOT EXISTS commands (id INTEGER PRIMARY KEY, trigger TEXT UNIQUE, payload TEXT, permission TEXT, cooldown INTEGER, uses INTEGER)")
+	statement, err := db.Prepare("CREATE TABLE IF NOT EXISTS commands (id INTEGER PRIMARY KEY, trigger TEXT UNIQUE, payload TEXT, permission TEXT, cooldown INTEGER, uses INTEGER);")
 	if err != nil {
 		handleSQLError(err)
 	}
@@ -256,7 +256,7 @@ func CommandDBSelect(trigger string, db *sql.DB) (string, string) {
 }
 
 func CommandDBInsert(trigger string, payload string, permission string, db *sql.DB, cooldown int) string {
-	statement, err := db.Prepare("INSERT INTO commands (trigger, payload, permission, cooldown) VALUES (?, ?, ?, ?)")
+	statement, err := db.Prepare("INSERT INTO commands (trigger, payload, permission, cooldown) VALUES (?, ?, ?, ?);")
 	if err != nil {
 		panic(err)
 	}
