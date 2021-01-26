@@ -1,9 +1,13 @@
-FROM golang:1.14 AS builder
+FROM golang:1.14 AS getter
 
 WORKDIR /go/src/chatbot
 COPY ./app .
 
 RUN go get -d -v ./...
+
+FROM getter
+WORKDIR /go/src/chatbot
+
 RUN go install -v ./...
 
 FROM golang:1.14 as runner
