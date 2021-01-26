@@ -62,15 +62,15 @@ func ProcessWhisperCommand(message twitch.WhisperMessage, re *regexp.Regexp) str
 	var resultMessage string
 	username := message.User.Name
 	submatch := re.FindStringSubmatch(message.Message)
-	trigger := submatch[1]
+	trigger := strings.ToLower(submatch[1])
 	options := submatch[3]
 
 	switch trigger {
-	case "joinChannel":
+	case "joinchannel":
 		zap.S().Debug("Join Channel Command Called")
 		BotDBBroadcasterAdd(username)
 		resultMessage = "Thank you %s for the join request, I've sent it to Hikthur for authorization"
-	case "authorizeJoin":
+	case "authorizejoin":
 		if strings.ToLower(username) != "hikthur" {
 			resultMessage = "I'm sorry, only Hikthur can authorize new channels."
 		} else {
@@ -89,8 +89,8 @@ func ProcessChannelCommand(message twitch.PrivateMessage, ch broadcaster, re *re
 
 	///// REWORK TO INCLUDE command permission options structure.
 	submatch := re.FindStringSubmatch(message.Message)
-	trigger := submatch[1]
-	level := submatch[2]
+	trigger := strings.ToLower(submatch[1])
+	level := strings.ToLower(submatch[2])
 	options := submatch[3]
 	var result string
 
