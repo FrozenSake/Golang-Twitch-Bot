@@ -3,7 +3,6 @@ package main
 
 import (
 	"database/sql"
-	"fmt"
 	"os"
 	"regexp"
 	"strings"
@@ -156,7 +155,7 @@ func main() {
 	}
 
 	client.OnPrivateMessage(func(message twitch.PrivateMessage) {
-		fmt.Printf("%v - %v: %v\n", message.Channel, message.User.DisplayName, message.Message)
+		//zap.S().Debugf("%v - %v: %v\n", message.Channel, message.User.DisplayName, message.Message)
 		if re.MatchString(message.Message) {
 			zap.S().Debugf("##Possible Command detected in %v!##", message.Channel)
 			target := message.Channel
