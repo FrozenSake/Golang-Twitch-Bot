@@ -21,3 +21,7 @@ provider "tls" {
 provider "http" {
   version = ">= 2.0.0"
 }
+
+provider "template" {
+  version = ">= 2.2.0"
+}

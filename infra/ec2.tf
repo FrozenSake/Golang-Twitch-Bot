@@ -12,6 +12,8 @@ resource "aws_instance" "bot-docker-host" {
     aws_security_group.chatbot-external-sg.id
   ]
 
+  user_data = data.template_file.bot-user-data.rendered
+
   root_block_device {
     volume_size = 40
   }
@@ -21,6 +23,15 @@ resource "aws_instance" "bot-docker-host" {
   },local.common_tags)
 }
 
+data "template_file" "bot-user-data" {
+  template = "${file("./user_data")}"
+  vars = {
+    region = var.aws_region
+    env = var.env
+    service = var.service
+    role = aws_iam_role.bot-ec2-role.name
+  }
+}
 
 resource "aws_key_pair" "bot-ec2-key" {
   key_name = "bot-ec2-key"

@@ -4,7 +4,6 @@ package main
 import (
 	"database/sql"
 	"fmt"
-	"log"
 	"os"
 	"regexp"
 	"strings"
@@ -12,7 +11,6 @@ import (
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/service/rds"
 	"github.com/gempir/go-twitch-irc/v2"
-	"github.com/joho/godotenv"
 	_ "github.com/mattn/go-sqlite3"
 )
 
@@ -88,19 +86,6 @@ func handleAWSError(err error) {
 	}
 }
 
-/* Environment Variables */
-
-func goDotEnvVariable(key string) string {
-
-	err := godotenv.Load(".env")
-
-	if err != nil {
-		log.Fatalf("Error loading .env file")
-	}
-
-	return os.Getenv(key)
-}
-
 func OauthCheck() {
 	if oauth[:6] != oauthForm {
 		oauth = oauthForm + oauth
@@ -123,9 +108,11 @@ func main() {
 	BotDBMainTablesPrepare(botDB)
 	BotDBBroadcasterAdd("hikthur", botDB)
 
+	region := os.Getenv("AWS_REGION")
+
 	targets := strings.Split(BotDBBroadcasterList(botDB), ";")
-	username = os.Getenv("BOT_USERNAME")
-	oauth = os.Getenv("BOT_OAUTH")
+	username = getAWSSecret("bot-username", region)
+	oauth = getAWSSecret("bot-oauth", region)
 
 	OauthCheck()
 	channels = make(map[string]broadcaster)

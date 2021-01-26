@@ -8,32 +8,38 @@ import (
 	"regexp"
 	"strings"
 
+	_ "github.com/lib/pq"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/rds"
 	"github.com/aws/aws-sdk-go/service/rds/rdsutils"
+	"github.com/aws/aws-sdk-go/service/secretsmanager"
 
 	"github.com/gempir/go-twitch-irc/v2"
 )
 
 const dbType = "postgres"
 
-/* AWS Aurora DB */
+/* Secrets */
 
-func createInstance(config *aws.Config) *rds.RDS {
-	botSession := session.Must(session.NewSession())
+func getAWSSecret(secretName, region string) string {
+	svc := secretsmanager.New(session.New(aws.NewConfig().WithRegion(region)))
+	env := os.Getenv("ENV")
+	serviceName := os.Getenv("SVCNAME")
 
-	// Create a RDS client with additional configuration
-	svc := rds.New(botSession, config)
+	secretName = env + "/" + serviceName + "/" + secretName
 
-	return svc
-}
+	input := &secretsmanager.GetSecretValueInput{
+		SecretId:     aws.String(secretName),
+		VersionStage: aws.String("AWSPREVIOUS"),
+	}
 
-func createConfig(region string) *aws.Config {
-	config := aws.NewConfig().WithRegion(region)
-
-	return config
+	result, err := svc.GetSecretValue(input)
+	if err != nil {
+		handleAWSError(err)
+	}
+	return *result.SecretString
 }
 
 /* Commands */
@@ -126,10 +132,10 @@ func DBConnect(dbEndpoint string, awsRegion string, dbUser string, dbName string
 func BotDBPrepare() *sql.DB {
 	// https://docs.aws.amazon.com/sdk-for-go/api/aws/credentials/#EnvProvider
 	creds := credentials.NewEnvCredentials()
-	endpoint := os.Getenv("RDS_ENDPOINT")
 	awsRegion := os.Getenv("AWS_REGION")
-	dbUser := os.Getenv("DB_USER")
-	dbName := os.Getenv("DB_NAME")
+	endpoint := getAWSSecret("db-endpoint", awsRegion)
+	dbUser := getAWSSecret("db-user", awsRegion)
+	dbName := getAWSSecret("db-name", awsRegion)
 
 	db, err := DBConnect(endpoint, awsRegion, dbUser, dbName, dbType, creds)
 	if err != nil {
@@ -195,9 +201,9 @@ func BotDBBroadcasterRemove(broadcaster string, db *sql.DB) {
 
 func ChannelDBPrepare(botDB *sql.DB, channelName string) *sql.DB {
 	creds := credentials.NewEnvCredentials()
-	dbEndpoint := os.Getenv("RDS_ENDPOINT")
 	awsRegion := os.Getenv("AWS_REGION")
-	dbUser := os.Getenv("DB_USER")
+	dbEndpoint := getAWSSecret("db-endpoint", awsRegion)
+	dbUser := getAWSSecret("db-user", awsRegion)
 	database, err := DBConnect(dbEndpoint, awsRegion, dbUser, channelName, dbType, creds)
 	if err != nil {
 		command := fmt.Sprintf("CREATE DATABASE %s", channelName)
