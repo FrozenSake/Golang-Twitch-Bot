@@ -97,8 +97,13 @@ func OauthCheck() {
 /* Formatting */
 
 func FormatResponse(payload string, message twitch.PrivateMessage) string {
-	formatted := strings.ReplaceAll(payload, "{user}", message.User.DisplayName)
-	formatted = strings.ReplaceAll(payload, "{target}", "{target}")
+	var user string
+	if message.User.Name == "" && message.User.DisplayName != "" {
+		user = message.User.DisplayName
+	} else {
+		user = message.User.Name
+	}
+	formatted := strings.ReplaceAll(payload, "{user}", user)
 
 	return formatted
 }
@@ -114,13 +119,12 @@ func main() {
 	zap.S().Info("Twitch Chatbot Starting up.")
 
 	zap.S().Info("Begin BotDB Preparation Stack.")
-	botDB := BotDBPrepare()
-	BotDBMainTablesPrepare(botDB)
-	BotDBBroadcasterAdd("hikthur", botDB)
+	BotDBPrepare()
+	BotDBMainTablesPrepare()
 	zap.S().Info("BotDB Preparation Stack Complete.")
 
 	zap.S().Debug("Setting Environment Variables")
-	targets := strings.Split(BotDBBroadcasterList(botDB), ";")
+	targets := strings.Split(BotDBBroadcasterList(), ";")
 	region := os.Getenv("AWS_REGION")
 	username = getAWSSecret("bot-username", region)
 	oauth = getAWSSecret("bot-oauth", region)
@@ -159,10 +163,18 @@ func main() {
 		if re.MatchString(message.Message) {
 			zap.S().Debugf("##Possible Command detected in %v!##", message.Channel)
 			target := message.Channel
-			command := DoCommand(message, channels[target], re)
+			command := ProcessChannelCommand(message, channels[target], re)
 			if command != "" {
 				client.Say(target, command)
 			}
+		}
+	})
+
+	client.OnWhisperMessage(func(message twitch.WhisperMessage) {
+		zap.S().Debugf("Whisper received from %v", message.User)
+		if re.MatchString(message.Message) {
+			zap.S().Debugf("Whisper Command Received From: %v, Content: %v", message.User, message.Message)
+			ProcessWhisperCommand(message, re)
 		}
 	})
 

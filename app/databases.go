@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"net/url"
 	"os"
-	"regexp"
 	"strings"
 
 	_ "github.com/lib/pq"
@@ -15,14 +14,14 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/secretsmanager"
-
-	"github.com/gempir/go-twitch-irc/v2"
 )
 
 const dbType = "postgres"
 
-/* Secrets */
+// BOTDB is a global variable to hold the bot db connection since it's used all over
+var BOTDB *sql.DB
 
+/* Secrets */
 func getAWSSecret(secretName, region string) string {
 	zap.S().Infof("Getting AWS Secret: %v", secretName)
 	env := os.Getenv("ENV")
@@ -45,91 +44,6 @@ func getAWSSecret(secretName, region string) string {
 		handleAWSError(err)
 	}
 	return *result.SecretString
-}
-
-/* Commands */
-
-func DoCommand(message twitch.PrivateMessage, ch broadcaster, re *regexp.Regexp) string {
-	zap.S().Debugf("Executing a command")
-
-	///// REWORK TO INCLUDE command permission options structure.
-	command := strings.ToLower(message.Message)
-	submatch := re.FindStringSubmatch(command)
-	trigger := submatch[1]
-	level := submatch[2]
-	options := submatch[3]
-	var result string
-
-	userBadges := message.User.Badges
-	var userLevel string
-	if userBadges["Broadcaster"] == 1 {
-		zap.S().Debug("User is the broadcaster")
-		userLevel = "b"
-	} else if userBadges["Moderater"] == 1 {
-		zap.S().Debug("User is a moderator")
-		userLevel = "m"
-	} else {
-		zap.S().Debug("User is a viewer")
-		userLevel = ""
-	}
-
-	if trigger == "addcommand" {
-		permission := "m"
-		if !AuthorizeCommand(userLevel, permission) {
-			result = "Sorry, you're not authorized to use this command {user}."
-		} else {
-			submatch = re.FindStringSubmatch(options)
-			newTrigger := submatch[1]
-			newOptions := submatch[2]
-			result = CommandDBInsert(newTrigger, newOptions, level, ch.database, 0)
-		}
-	} else if trigger == "removecommand" {
-		permission := "m"
-		if !AuthorizeCommand(userLevel, permission) {
-			result = "Sorry, you're not authorized to use this command {user}."
-		} else {
-			submatch = re.FindStringSubmatch(options)
-			deleteTrigger := submatch[1]
-			result = CommandDBRemove(deleteTrigger, ch.database)
-		}
-	} else if trigger == "connectionTest" {
-		permission := "m"
-		if !AuthorizeCommand(userLevel, permission) {
-			result = ""
-		} else {
-			result = "The bot has succesfully latched on to this channel."
-		}
-	} else if trigger == "joinchannel" {
-		permission := "b"
-		if !AuthorizeCommand(userLevel, permission) {
-			result = ""
-		} else {
-			//BotDBBroadcasterAdd(broadcaster, botDB)
-		}
-	} else {
-		result, permission := CommandDBSelect(trigger, ch.database)
-		if result == "" {
-			result = "No " + trigger + " command."
-		}
-		if !AuthorizeCommand(userLevel, permission) {
-			result = "Sorry, you're not authorized to use this command {user}."
-		}
-	}
-
-	result = FormatResponse(result, message)
-
-	return result
-}
-
-func AuthorizeCommand(userLevel, permissionLevel string) bool {
-	zap.S().Debugf("Authorizing a command")
-	if permissionLevel == "b" && userLevel != "b" {
-		return false
-	} else if permissionLevel == "m" || permissionLevel == "b" {
-		return false
-	} else {
-		return true
-	}
 }
 
 /* DB Functions */
@@ -160,7 +74,7 @@ func DBConnect(dbEndpoint, dbUser, dbPassword, dbName, dbType string) (*sql.DB, 
 
 /* Bot DB */
 
-func BotDBPrepare() *sql.DB {
+func BotDBPrepare() {
 	zap.S().Infof("Preparing the bot DB")
 	awsRegion := os.Getenv("AWS_REGION")
 	endpoint := getAWSSecret("db-endpoint", awsRegion)
@@ -173,21 +87,21 @@ func BotDBPrepare() *sql.DB {
 		handleSQLError(err)
 	}
 
-	return db
+	BOTDB = db
 }
 
-func BotDBMainTablesPrepare(db *sql.DB) {
+func BotDBMainTablesPrepare() {
 	zap.S().Info("Preparing the bot DB broadcasters table")
-	statement, err := db.Prepare("CREATE TABLE IF NOT EXISTS broadcasters (channelname TEXT PRIMARY KEY, dbcreated BOOL);")
+	statement, err := BOTDB.Prepare("CREATE TABLE IF NOT EXISTS broadcasters (channelname TEXT PRIMARY KEY, dbcreated BOOL, authorized BOOL);")
 	if err != nil {
 		handleSQLError(err)
 	}
 	statement.Exec()
 }
 
-func BotDBBroadcasterList(db *sql.DB) string {
+func BotDBBroadcasterList() string {
 	zap.S().Info("Listing broadcasters")
-	rows, err := db.Query("SELECT channelname FROM broadcasters")
+	rows, err := BOTDB.Query("SELECT channelname FROM broadcasters WHERE dbcreated=true")
 	if err != nil {
 		handleSQLError(err)
 	}
@@ -208,32 +122,35 @@ func BotDBBroadcasterList(db *sql.DB) string {
 	return result
 }
 
-func BotDBBroadcasterAdd(broadcaster string, db *sql.DB) {
+func BotDBBroadcasterAdd(broadcaster string) {
 	zap.S().Info("Adding a new broadcaster")
-	insertStatement := "INSERT INTO broadcasters (channelname, dbcreated) VALUES ('" + broadcaster + "', false) ON CONFLICT (channelname) DO NOTHING;"
+	insertStatement := "INSERT INTO broadcasters (channelname, dbcreated, authorized) VALUES ('" + broadcaster + "', false, false) ON CONFLICT (channelname) DO NOTHING;"
 
-	statement, err := db.Prepare(insertStatement)
+	statement, err := BOTDB.Prepare(insertStatement)
 	if err != nil {
 		handleSQLError(err)
 	}
 	defer statement.Close()
 	statement.Exec()
 
-	zap.S().Infof("Checking if broadcaster %v is new / has a DB already", broadcaster)
-	rows, err := db.Query("SELECT dbcreated FROM broadcasters WHERE channelname='" + broadcaster + "';")
+	zap.S().Infof("Checking if %v is new / has a DB already", broadcaster)
+	rows, err := BOTDB.Query("SELECT dbcreated, authorized FROM broadcasters WHERE channelname='" + broadcaster + "';")
 	if err != nil {
 		handleSQLError(err)
 	}
 	defer rows.Close()
 	for rows.Next() {
-		var dbcreated bool
-		if err := rows.Scan(&dbcreated); err != nil {
+		var (
+			dbcreated  bool
+			authorized bool
+		)
+		if err := rows.Scan(&dbcreated, &authorized); err != nil {
 			handleSQLError(err)
 		}
-		if dbcreated == false {
-			zap.S().Infof("dbcreated for %v is false", broadcaster)
-			ChannelDBPrepare(db, broadcaster)
-			stmnt, err := db.Prepare("UPDATE broadcasters SET dbcreated = true WHERE channelname = '" + broadcaster + "';")
+		if dbcreated == false && authorized == true {
+			zap.S().Infof("dbcreated for %v is false and user is authorized", broadcaster)
+			ChannelDBPrepare(broadcaster)
+			stmnt, err := BOTDB.Prepare("UPDATE broadcasters SET dbcreated = true WHERE channelname = '" + broadcaster + "';")
 			if err != nil {
 				handleSQLError(err)
 			}
@@ -241,14 +158,23 @@ func BotDBBroadcasterAdd(broadcaster string, db *sql.DB) {
 			zap.S().Infof("%v dbcreated set to true", broadcaster)
 		}
 	}
-
 }
 
-func BotDBBroadcasterRemove(broadcaster string, db *sql.DB) {
+func BroadcasterAuthorize(broadcaster string) {
+	zap.S().Infof("Authorizing %v", broadcaster)
+	authorizeStatement, err := BOTDB.Prepare("UPDATE broadcasters SET authorized = true WHERE channelname = '" + broadcaster + "';")
+	if err != nil {
+		handleSQLError(err)
+	}
+	authorizeStatement.Exec()
+	zap.S().Infof("%v authorized", broadcaster)
+}
+
+func BotDBBroadcasterRemove(broadcaster string) {
 	zap.S().Info("Removing a broadcaster")
 	deleteStatement := "DELETE FROM broadcasters WHERE channelname = '" + broadcaster + "';"
 
-	statement, err := db.Prepare(deleteStatement)
+	statement, err := BOTDB.Prepare(deleteStatement)
 	if err != nil {
 		handleSQLError(err)
 	}
@@ -258,14 +184,14 @@ func BotDBBroadcasterRemove(broadcaster string, db *sql.DB) {
 
 /* Channel DB */
 
-func ChannelDBPrepare(botDB *sql.DB, channelName string) {
+func ChannelDBPrepare(channelName string) {
 	zap.S().Infof("Preparing the %v channel DB", channelName)
 	awsRegion := os.Getenv("AWS_REGION")
 	dbUser := getAWSSecret("db-user", awsRegion)
 	dbEndpoint := getAWSSecret("db-endpoint", awsRegion)
 	dbPassword := getAWSSecret("db-password", awsRegion)
 	command := fmt.Sprintf("CREATE DATABASE %s;", channelName)
-	statement, err := botDB.Prepare(command)
+	statement, err := BOTDB.Prepare(command)
 	if err != nil {
 		handleSQLError(err)
 	}
