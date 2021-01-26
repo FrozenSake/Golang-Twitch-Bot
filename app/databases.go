@@ -63,10 +63,13 @@ func DoCommand(message twitch.PrivateMessage, ch broadcaster, re *regexp.Regexp)
 	userBadges := message.User.Badges
 	var userLevel string
 	if userBadges["Broadcaster"] == 1 {
+		zap.S().Debug("User is the broadcaster")
 		userLevel = "b"
 	} else if userBadges["Moderater"] == 1 {
+		zap.S().Debug("User is a moderator")
 		userLevel = "m"
 	} else {
+		zap.S().Debug("User is a viewer")
 		userLevel = ""
 	}
 
@@ -108,7 +111,7 @@ func AuthorizeCommand(userLevel, permissionLevel string) bool {
 	zap.S().Debugf("Authorizing a command")
 	if permissionLevel == "b" && userLevel != "b" {
 		return false
-	} else if permissionLevel == "m" && (userLevel != "b" && userLevel != "m") {
+	} else if permissionLevel == "m" || permissionLevel == "b" {
 		return false
 	} else {
 		return true
