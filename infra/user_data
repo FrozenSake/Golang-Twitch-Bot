@@ -21,11 +21,10 @@ Content-Disposition: attachment; filename="userdata.txt"
 echo "${env}" >> /home/ubuntu/ENV
 echo "${region}" >> /home/ubuntu/AWS_REGION
 echo "${service}" >> /home/ubuntu/SVCNAME
-TOKEN=`curl -X PUT "http://169.254.169.254/latest/api/token" -H "X-aws-ec2-metadata-token-ttl-seconds: 21600"` \
-&& curl -H "X-aws-ec2-metadata-token: $TOKEN" -v http://169.254.169.254/latest/meta-data/iam/security-credentials/${role} >> /home/ubuntu/CREDS
+echo "${accessKey}" >> /home/ubuntu/AWS_ACCESS_KEY_ID
+echo "${secretKey}" >> /home/ubuntu/AWS_SECRET_ACCESS_KEY
 sudo snap install docker
-sudo apt install -y jq
 sudo docker build https://github.com/FrozenSake/Golang-Twitch-Bot.git --tag frozensake/twitchbot/runner
-sudo docker run -d -e "ENV='$(cat /home/ubuntu/ENV)'" -e "AWS_REGION=''$(cat /home/ubuntu/AWS_REGION)" -e "SVCNAME='$(cat /home/ubuntu/SVCNAME)'" -e "AWS_ACCESS_KEY_ID='$(jq -r .AccessKeyId /home/ubuntu/CREDS)'" -e "AWS_SECRET_ACCESS_KEY='$(jq -r .SecretAccessKey /home/ubuntu/CREDS)'" --name chatbot frozensake/twitchbot/runner
+sudo docker run -d -e "ENV=$(cat /home/ubuntu/ENV)" -e "AWS_REGION=$(cat /home/ubuntu/AWS_REGION)" -e "SVCNAME=$(cat /home/ubuntu/SVCNAME)" -e "AWS_ACCESS_KEY_ID=$(cat /home/ubuntu/AWS_ACCESS_KEY_ID)" -e "AWS_SECRET_ACCESS_KEY=$(cat /home/ubuntu/AWS_SECRET_ACCESS_KEY)" --name chatbot frozensake/twitchbot/runner
 
 --//

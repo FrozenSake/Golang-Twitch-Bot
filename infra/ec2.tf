@@ -30,7 +30,8 @@ data "template_file" "bot-user-data" {
     region = var.aws_region
     env = var.env
     service = var.service
-    role = aws_iam_role.bot-ec2-role.name
+    accessKey = aws_iam_access_key.bot.id
+    secretKey = aws_iam_access_key.bot.secret
   }
 }
 
