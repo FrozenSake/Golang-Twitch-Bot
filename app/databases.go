@@ -202,8 +202,8 @@ func BotDBBroadcasterAdd(broadcaster string, db *sql.DB) {
 	defer statement.Close()
 	statement.Exec()
 
-	zap.S().Info("Checking if broadcaster is new / has a DB already")
-	rows, err := db.Query("SELECT dbcreated FROM broadcasters WHERE channelname=" + broadcaster)
+	zap.S().Infof("Checking if broadcaster %v is new / has a DB already", broadcaster)
+	rows, err := db.Query("'SELECT dbcreated FROM broadcasters WHERE channelname='" + broadcaster + "';")
 	if err != nil {
 		handleSQLError(err)
 	}
@@ -216,6 +216,12 @@ func BotDBBroadcasterAdd(broadcaster string, db *sql.DB) {
 		if dbcreated == false {
 			zap.S().Infof("dbcreated for %v is false", broadcaster)
 			ChannelDBPrepare(db, broadcaster)
+			stmnt, err := db.Prepare("UPDATE broadcasters SET dbcreated = true WHERE channelname = '" + broadcaster + "';")
+			if err != nil {
+				handleSQLError(err)
+			}
+			stmnt.Exec()
+			zap.S().Infof("%v dbcreated set to true", broadcaster)
 		}
 	}
 
