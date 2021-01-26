@@ -5,7 +5,7 @@ COPY ./app .
 
 RUN go get -d -v ./...
 
-FROM getter
+FROM getter AS builder
 WORKDIR /go/src/chatbot
 
 RUN go install -v ./...
