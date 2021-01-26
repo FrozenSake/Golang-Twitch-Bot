@@ -255,7 +255,8 @@ func CommandDBSelect(trigger string, db *sql.DB) (string, string) {
 
 func CommandDBInsert(trigger string, payload string, permission string, db *sql.DB, cooldown int) string {
 	zap.S().Info("Adding a command")
-	statement, err := db.Prepare("INSERT INTO commands (trigger, payload, permission, cooldown) VALUES (?, ?, ?, ?);")
+	commandString := fmt.Sprintf("INSERT INTO commands (trigger, payload, permission, cooldown) VALUES (%v, %v, %v, %v);", trigger, payload, permission, cooldown)
+	statement, err := db.Prepare(commandString)
 	if err != nil {
 		panic(err)
 	}
