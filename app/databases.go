@@ -92,6 +92,20 @@ func DoCommand(message twitch.PrivateMessage, ch broadcaster, re *regexp.Regexp)
 			deleteTrigger := submatch[1]
 			result = CommandDBRemove(deleteTrigger, ch.database)
 		}
+	} else if trigger == "connectionTest" {
+		permission := "m"
+		if !AuthorizeCommand(userLevel, permission) {
+			result = ""
+		} else {
+			result = "The bot has succesfully latched on to this channel."
+		}
+	} else if trigger == "joinchannel" {
+		permission := "b"
+		if !AuthorizeCommand(userLevel, permission) {
+			result = ""
+		} else {
+			//BotDBBroadcasterAdd(broadcaster, botDB)
+		}
 	} else {
 		result, permission := CommandDBSelect(trigger, ch.database)
 		if result == "" {

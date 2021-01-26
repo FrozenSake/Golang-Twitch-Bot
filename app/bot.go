@@ -161,7 +161,9 @@ func main() {
 			zap.S().Debugf("##Possible Command detected in %v!##", message.Channel)
 			target := message.Channel
 			command := DoCommand(message, channels[target], re)
-			client.Say(target, command)
+			if command != "" {
+				client.Say(target, command)
+			}
 		}
 	})
 
