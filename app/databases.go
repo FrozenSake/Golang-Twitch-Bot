@@ -125,7 +125,7 @@ func DBConnect(dbEndpoint, dbUser, dbPassword, dbName, dbType string) (*sql.DB, 
 	u, err := url.Parse(dsn)
 	if err != nil {
 		fmt.Printf("ERROR: %v\n", err)
-		panic()
+		panic(1)
 	}
 
 	u.User = url.UserPassword(dbUser, dbPassword)
