@@ -11,9 +11,7 @@ import (
 	_ "github.com/lib/pq"
 
 	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/rds/rdsutils"
 	"github.com/aws/aws-sdk-go/service/secretsmanager"
 
 	"github.com/gempir/go-twitch-irc/v2"
@@ -118,15 +116,14 @@ func handleSQLError(err error) {
 	fmt.Printf("SQL error: %v", err)
 }
 
-func DBConnect(dbEndpoint string, awsRegion string, dbUser string, dbName string, dbType string, awsCreds *credentials.Credentials) (*sql.DB, error) {
-	builder := rdsutils.NewConnectionStringBuilder(dbEndpoint, awsRegion, dbUser, dbName, awsCreds)
-	connectString, err := builder.WithTCPFormat().Build()
-	if err != nil {
-		handleAWSError(err)
-		return nil, err
-	}
+func DBConnect(dbEndpoint, dbUser, dbPassword, dbName, dbType string) (*sql.DB, error) {
+	url := fmt.Sprintf("postgres://%v:%v@%v/%v?sslmode=disable",
+		dbUser,
+		dbPassword,
+		dbEndpoint,
+		dbName)
 
-	db, err := sql.Open(dbType, connectString)
+	db, err := sql.Open(dbType, url)
 
 	return db, err
 }
@@ -134,14 +131,13 @@ func DBConnect(dbEndpoint string, awsRegion string, dbUser string, dbName string
 /* Bot DB */
 
 func BotDBPrepare() *sql.DB {
-	// https://docs.aws.amazon.com/sdk-for-go/api/aws/credentials/#EnvProvider
-	creds := credentials.NewEnvCredentials()
 	awsRegion := os.Getenv("AWS_REGION")
 	endpoint := getAWSSecret("db-endpoint", awsRegion)
 	dbUser := getAWSSecret("db-user", awsRegion)
+	dbPassword := getAWSSecret("db-password", awsRegion)
 	dbName := getAWSSecret("db-name", awsRegion)
 
-	db, err := DBConnect(endpoint, awsRegion, dbUser, dbName, dbType, creds)
+	db, err := DBConnect(endpoint, dbUser, dbPassword, dbName, dbType)
 	if err != nil {
 		handleSQLError(err)
 	}
@@ -204,11 +200,11 @@ func BotDBBroadcasterRemove(broadcaster string, db *sql.DB) {
 /* Channel DB */
 
 func ChannelDBPrepare(botDB *sql.DB, channelName string) *sql.DB {
-	creds := credentials.NewEnvCredentials()
 	awsRegion := os.Getenv("AWS_REGION")
 	dbEndpoint := getAWSSecret("db-endpoint", awsRegion)
 	dbUser := getAWSSecret("db-user", awsRegion)
-	database, err := DBConnect(dbEndpoint, awsRegion, dbUser, channelName, dbType, creds)
+	dbPassword := getAWSSecret("db-password", awsRegion)
+	database, err := DBConnect(dbEndpoint, dbUser, dbPassword, channelName, dbType)
 	if err != nil {
 		command := fmt.Sprintf("CREATE DATABASE %s", channelName)
 		statement, err := botDB.Prepare(command)
@@ -217,7 +213,7 @@ func ChannelDBPrepare(botDB *sql.DB, channelName string) *sql.DB {
 			return nil
 		}
 		statement.Exec()
-		database, err = DBConnect(dbEndpoint, awsRegion, dbUser, channelName, dbType, creds)
+		database, err = DBConnect(dbEndpoint, dbUser, dbPassword, channelName, dbType)
 	}
 	CommandTablePrepare(database)
 	UserDBPrepare(database)
