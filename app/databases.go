@@ -24,7 +24,7 @@ const dbType = "postgres"
 /* Secrets */
 
 func getAWSSecret(secretName, region string) string {
-	endpoint := "com.amazonaws." + region + ".secretsmanager"
+	endpoint := fmt.Sprintf("%s%s%s", "com.amazonaws.", region, ".secretsmanager")
 	env := os.Getenv("ENV")
 	serviceName := os.Getenv("SVCNAME")
 
