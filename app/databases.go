@@ -161,7 +161,7 @@ func BotDBPrepare() *sql.DB {
 
 func BotDBMainTablesPrepare(db *sql.DB) {
 	zap.S().Info("Preparing the bot DB broadcasters table")
-	statement, err := db.Prepare("CREATE TABLE IF NOT EXISTS broadcasters (id INTEGER PRIMARY KEY, channelname TEXT UNIQUE);")
+	statement, err := db.Prepare("CREATE TABLE IF NOT EXISTS broadcasters (channelname TEXT PRIMARY KEY);")
 	if err != nil {
 		handleSQLError(err)
 	}
