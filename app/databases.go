@@ -203,7 +203,7 @@ func BotDBBroadcasterAdd(broadcaster string, db *sql.DB) {
 	statement.Exec()
 
 	zap.S().Infof("Checking if broadcaster %v is new / has a DB already", broadcaster)
-	rows, err := db.Query("'SELECT dbcreated FROM broadcasters WHERE channelname='" + broadcaster + "';")
+	rows, err := db.Query("SELECT dbcreated FROM broadcasters WHERE channelname='" + broadcaster + "';")
 	if err != nil {
 		handleSQLError(err)
 	}
