@@ -210,7 +210,7 @@ func ChannelDBPrepare(botDB *sql.DB, channelName string) *sql.DB {
 	dbEndpoint := getAWSSecret("db-endpoint", awsRegion)
 	dbUser := getAWSSecret("db-user", awsRegion)
 	dbPassword := getAWSSecret("db-password", awsRegion)
-	database, err := DBConnect(dbEndpoint, dbUser, dbPassword, channelName, dbType)
+	database, err := DBConnect(dbEndpoint, channelName, dbPassword, channelName, dbType)
 	if err != nil {
 		command := fmt.Sprintf("CREATE DATABASE %s;", channelName)
 		statement, err := botDB.Prepare(command)
@@ -281,7 +281,7 @@ func CommandDBRemove(trigger string, db *sql.DB) string {
 
 func UserDBPrepare(db *sql.DB) {
 	// User table fields: Name, aliases, streams visited, last seen, watchtime, status, streamer BOOL, streamlink/shoutout
-	statement, err := db.Prepare("CREATE TABLE IF NOT EXISTS user (id INTEGER PRIMARY KEY, name TEXT, aliases BLOB, lastseen TEXT, streamsvisited INTEGER, watchtime INTEGER, streamer BOOL, streamlink TEXT)")
+	statement, err := db.Prepare("CREATE TABLE IF NOT EXISTS channelusers (id INTEGER PRIMARY KEY, name TEXT, aliases BLOB, lastseen TEXT, streamsvisited INTEGER, watchtime INTEGER, streamer BOOL, streamlink TEXT)")
 	if err != nil {
 		panic(err)
 	}
