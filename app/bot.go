@@ -163,18 +163,22 @@ func main() {
 		if re.MatchString(message.Message) {
 			zap.S().Debugf("##Possible Command detected in %v!##", message.Channel)
 			target := message.Channel
-			command := ProcessChannelCommand(message, channels[target], re)
-			if command != "" {
-				client.Say(target, command)
+			commandMessage := ProcessChannelCommand(message, channels[target], re)
+			if commandMessage != "" {
+				client.Say(target, commandMessage)
 			}
 		}
 	})
 
 	client.OnWhisperMessage(func(message twitch.WhisperMessage) {
 		zap.S().Debugf("Whisper received from %v", message.User)
+		zap.S().Debugf("%v: %v\n", message.User.DisplayName, message.Message)
 		if re.MatchString(message.Message) {
 			zap.S().Debugf("Whisper Command Received From: %v, Content: %v", message.User, message.Message)
-			ProcessWhisperCommand(message, re)
+			resultMessage := ProcessWhisperCommand(message, re)
+			if resultMessage != "" {
+				client.Whisper(message.User.Name, resultMessage)
+			}
 		}
 	})
 

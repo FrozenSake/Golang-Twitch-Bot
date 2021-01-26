@@ -26,14 +26,23 @@ func ProcessUserPermissions(userBadges map[string]int) string {
 	return userLevel
 }
 
-func AuthorizeCommand(userLevel, permissionLevel string) bool {
+func AuthorizeCommand(userLevel, username, permissionLevel string) bool {
 	zap.S().Debugf("Authorizing a command")
-	if permissionLevel == "b" && userLevel != "b" {
-		return false
-	} else if userLevel == "m" || userLevel == "b" {
-		return false
-	} else {
+	if username == permissionLevel {
+		zap.S().Debugf("User is the explicit allow to perform this command.")
 		return true
+	} else if userLevel == "b" {
+		zap.S().Debugf("The broadcaster can execute any command.")
+		return true
+	} else if permissionLevel == "m" && userLevel != "m" {
+		zap.S().Debugf("User is not authorized for moderator level commands")
+		return false
+	} else if permissionLevel == "" {
+		zap.S().Debugf("This command is available to all users.")
+		return true
+	} else {
+		zap.S().Debugf("Default deny")
+		return false
 	}
 }
 
@@ -85,12 +94,13 @@ func ProcessChannelCommand(message twitch.PrivateMessage, ch broadcaster, re *re
 	options := submatch[3]
 	var result string
 
+	userName := message.User.Name
 	userPermissionLevel := ProcessUserPermissions(message.User.Badges) //Pre-processed by twitchirc
 	var requiredPermission string
 	switch trigger {
 	case "addcommand":
 		requiredPermission = "m"
-		if !AuthorizeCommand(userPermissionLevel, requiredPermission) {
+		if !AuthorizeCommand(userPermissionLevel, userName, requiredPermission) {
 			result = ""
 		} else {
 			submatch = re.FindStringSubmatch(options)
@@ -100,7 +110,7 @@ func ProcessChannelCommand(message twitch.PrivateMessage, ch broadcaster, re *re
 		}
 	case "removecommand":
 		requiredPermission = "m"
-		if !AuthorizeCommand(userPermissionLevel, requiredPermission) {
+		if !AuthorizeCommand(userPermissionLevel, userName, requiredPermission) {
 			result = ""
 		} else {
 			submatch = re.FindStringSubmatch(options)
@@ -109,7 +119,7 @@ func ProcessChannelCommand(message twitch.PrivateMessage, ch broadcaster, re *re
 		}
 	case "connectiontest":
 		requiredPermission = "m"
-		if !AuthorizeCommand(userPermissionLevel, requiredPermission) {
+		if !AuthorizeCommand(userPermissionLevel, userName, requiredPermission) {
 			result = ""
 		} else {
 			result = "The bot has succesfully latched on to this channel."
@@ -119,7 +129,7 @@ func ProcessChannelCommand(message twitch.PrivateMessage, ch broadcaster, re *re
 		if result == "" {
 			result = "No " + trigger + " command."
 		}
-		if !AuthorizeCommand(userPermissionLevel, requiredPermission) {
+		if !AuthorizeCommand(userPermissionLevel, userName, requiredPermission) {
 			result = "Sorry, you're not authorized to use this command {user}."
 		}
 	}
