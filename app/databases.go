@@ -24,7 +24,7 @@ const dbType = "postgres"
 /* Secrets */
 
 func getAWSSecret(secretName, region string) string {
-	sess, err := session.NewSession(aws.NewConfig().WithRegion(region))
+	sess, err := session.NewSession(aws.NewConfig().WithRegion(region).WithEndpoint(""))
 	if err != nil {
 		handleAWSError(err)
 	}
@@ -35,8 +35,7 @@ func getAWSSecret(secretName, region string) string {
 	secretName = env + "/" + serviceName + "/" + secretName
 
 	input := &secretsmanager.GetSecretValueInput{
-		SecretId:     aws.String(secretName),
-		VersionStage: aws.String("AWSPREVIOUS"),
+		SecretId: aws.String(secretName),
 	}
 
 	result, err := svc.GetSecretValue(input)

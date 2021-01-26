@@ -14,6 +14,19 @@ resource "aws_vpc" "chatbot-vpc" {
   },local.common_tags)
 }
 
+resource "aws_vpc_endpoint" "secretsmanager" {
+  vpc_id = aws_vpc.chatbot-vpc.id
+  service_name = "com.amazonaws.${var.aws_region}.secretsmanager"
+
+  security_group_ids = [ aws_security_group.chatbot-internal-sg.id ]
+
+  vpc_endpoint_type = "Interface"
+
+  tags = merge({
+    Name    = "Secretsmanager Endpoint"
+  },local.common_tags)
+}
+
 # https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/subnet
 resource "aws_subnet" "chatbot-subnets" {
   count                   = length(data.aws_availability_zones.aws-az.names)
@@ -92,13 +105,6 @@ resource "aws_security_group" "chatbot-external-sg"{
   description = "Control external chatbot connections"
   vpc_id      = aws_vpc.chatbot-vpc.id
 
-  ingress {
-    protocol        = "-1"
-    from_port       = 0
-    to_port         = 0
-    self            = true
-  }
-
   egress {
     protocol    = "-1"
     from_port   = 0
@@ -118,6 +124,15 @@ resource "aws_security_group_rule" "chatbot-external-ssh" {
   to_port           = 22
   protocol          = "tcp"
   cidr_blocks       = ["${chomp(data.http.icanhazip.body)}/32"]
+  security_group_id = aws_security_group.chatbot-external-sg.id
+}
+
+resource "aws_security_group_rule" "chatbot-external-general" {
+  type              = "ingress"
+  from_port         = 0
+  to_port           = 0
+  protocol          = "-1"
+  self              = true
   security_group_id = aws_security_group.chatbot-external-sg.id
 }
 

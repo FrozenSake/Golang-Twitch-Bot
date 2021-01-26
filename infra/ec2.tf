@@ -7,10 +7,11 @@ resource "aws_instance" "bot-docker-host" {
   subnet_id = aws_subnet.chatbot-subnets[0].id
   
   iam_instance_profile = aws_iam_instance_profile.bot-ec2-profile.name
-  security_groups      = [
+  vpc_security_group_ids      = [
     aws_security_group.chatbot-internal-sg.id,
     aws_security_group.chatbot-external-sg.id
   ]
+
 
   user_data = data.template_file.bot-user-data.rendered
 
