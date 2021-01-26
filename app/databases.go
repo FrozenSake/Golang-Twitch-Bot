@@ -4,6 +4,7 @@ package main
 import (
 	"database/sql"
 	"fmt"
+	"net/url"
 	"os"
 	"regexp"
 	"strings"
@@ -117,13 +118,18 @@ func handleSQLError(err error) {
 }
 
 func DBConnect(dbEndpoint, dbUser, dbPassword, dbName, dbType string) (*sql.DB, error) {
-	url := fmt.Sprintf("postgres://%v:%v@%v/%v?sslmode=disable",
-		dbUser,
-		dbPassword,
+	dsn := fmt.Sprintf("postgres://%v/%v?sslmode=disable",
 		dbEndpoint,
 		dbName)
 
-	db, err := sql.Open(dbType, url)
+	u, err := url.Parse(dsn)
+	if err != nil {
+		fmt.Printf("ERROR: %v\n", err)
+		panic()
+	}
+
+	u.User = url.UserPassword(dbUser, dbPassword)
+	db, err := sql.Open(dbType, u.String())
 
 	return db, err
 }
