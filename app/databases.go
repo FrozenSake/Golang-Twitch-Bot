@@ -207,10 +207,10 @@ func BotDBBroadcasterRemove(broadcaster string, db *sql.DB) {
 
 func ChannelDBPrepare(botDB *sql.DB, channelName string) *sql.DB {
 	awsRegion := os.Getenv("AWS_REGION")
-	dbEndpoint := getAWSSecret("db-endpoint", awsRegion)
 	dbUser := getAWSSecret("db-user", awsRegion)
+	dbEndpoint := getAWSSecret("db-endpoint", awsRegion)
 	dbPassword := getAWSSecret("db-password", awsRegion)
-	database, err := DBConnect(dbEndpoint, channelName, dbPassword, channelName, dbType)
+	database, err := DBConnect(dbEndpoint, dbUser, dbPassword, channelName, dbType)
 	if err != nil {
 		command := fmt.Sprintf("CREATE DATABASE %s;", channelName)
 		statement, err := botDB.Prepare(command)
