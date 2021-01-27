@@ -92,7 +92,7 @@ func BotDBPrepare() {
 
 func BotDBMainTablesPrepare() {
 	zap.S().Info("Preparing the bot DB broadcasters table")
-	statement, err := BOTDB.Prepare("CREATE TABLE IF NOT EXISTS broadcasters (channelname TEXT PRIMARY KEY, dbcreated BOOL, authorized BOOL);")
+	statement, err := BOTDB.Prepare("CREATE TABLE IF NOT EXISTS broadcasters (id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY, channelname UNIQUE TEXT, dbcreated BOOL, authorized BOOL);")
 	if err != nil {
 		handleSQLError(err)
 	}
@@ -226,7 +226,7 @@ func ChannelDBConnect(channelName string) *sql.DB {
 
 func CommandTablePrepare(db *sql.DB) {
 	zap.S().Infof("Preparing the command table on a DB")
-	statement, err := db.Prepare("CREATE TABLE IF NOT EXISTS commands (id INTEGER PRIMARY KEY, trigger TEXT UNIQUE, payload TEXT, permission TEXT, cooldown INTEGER, uses INTEGER);")
+	statement, err := db.Prepare("CREATE TABLE IF NOT EXISTS commands (id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY, trigger TEXT UNIQUE, payload TEXT, permission TEXT, cooldown INTEGER, uses INTEGER);")
 	if err != nil {
 		handleSQLError(err)
 	}
@@ -283,7 +283,7 @@ func CommandDBRemove(trigger string, db *sql.DB) string {
 func UserDBPrepare(db *sql.DB) {
 	zap.S().Info("Preparing the User DB for a channel")
 	// User table fields: Name, aliases, streams visited, last seen, watchtime, status, streamer BOOL, streamlink/shoutout
-	statement, err := db.Prepare("CREATE TABLE IF NOT EXISTS channelusers (id INTEGER PRIMARY KEY, name TEXT, aliases BLOB, lastseen TEXT, streamsvisited INTEGER, watchtime INTEGER, streamer BOOL, streamlink TEXT)")
+	statement, err := db.Prepare("CREATE TABLE IF NOT EXISTS channelusers (id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY, name TEXT, aliases BLOB, lastseen TEXT, streamsvisited INTEGER, watchtime INTEGER, streamer BOOL, streamlink TEXT)")
 	if err != nil {
 		panic(err)
 	}
