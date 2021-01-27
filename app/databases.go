@@ -265,7 +265,8 @@ func CommandDBInsert(trigger string, payload string, permission string, cooldown
 	commandString := fmt.Sprintf("INSERT INTO commands (trigger, payload, permission, cooldown) VALUES ('%v', '%v', '%v', %v);", trigger, payload, permission, cooldown)
 	statement, err := db.Prepare(commandString)
 	if err != nil {
-		panic(err)
+		handleSQLError(err)
+		return "I couldn't add that command due to a SQL error."
 	}
 	defer statement.Close()
 	statement.Exec(trigger, payload, permission, cooldown)

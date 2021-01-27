@@ -69,7 +69,7 @@ func ProcessWhisperCommand(message twitch.WhisperMessage, re *regexp.Regexp) str
 	case "joinchannel":
 		zap.S().Debug("Join Channel Command Called")
 		BotDBBroadcasterAdd(username)
-		resultMessage = "Thank you %s for the join request, I've sent it to Hikthur for authorization"
+		resultMessage = fmt.Sprintf("Thank you %s for the join request, I've sent it to Hikthur for authorization", message.User.Name)
 	case "authorizejoin":
 		if strings.ToLower(username) != "hikthur" {
 			resultMessage = "I'm sorry, only Hikthur can authorize new channels."
