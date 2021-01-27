@@ -91,7 +91,6 @@ func ProcessChannelCommand(message twitch.PrivateMessage, ch broadcaster, re *re
 	///// REWORK TO INCLUDE command permission options structure.
 	submatch := re.FindStringSubmatch(message.Message)
 	trigger := strings.ToLower(submatch[1])
-	level := strings.ToLower(submatch[2])
 	options := submatch[3]
 	var result string
 
@@ -108,7 +107,11 @@ func ProcessChannelCommand(message twitch.PrivateMessage, ch broadcaster, re *re
 			if len(submatch) == 0 {
 				result = "I'm sorry, I can't add that command for some reason."
 			} else {
-				result = CommandDBInsert(submatch[1], submatch[2], level, 0, ch.database)
+				newTrigger := submatch[1]
+				newLevel := strings.ToLower(submatch[2])
+				newPayload := submatch[3]
+				zap.S().Debugf("Adding command with trigger: %v, level: %v, payload: %v", newTrigger, newLevel, newPayload)
+				result = CommandDBInsert(newTrigger, newPayload, newLevel, 0, ch.database)
 			}
 		}
 	case "removecommand":
