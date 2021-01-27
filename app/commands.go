@@ -105,18 +105,10 @@ func ProcessChannelCommand(message twitch.PrivateMessage, ch broadcaster, re *re
 			result = ""
 		} else {
 			submatch = re.FindStringSubmatch(options)
-			var newTrigger string
-			var newOptions string
-			if submatch[1] != "" {
-				newTrigger = submatch[1]
-			}
-			if submatch[2] != "" {
-				newOptions = submatch[2]
-			}
-			if newTrigger != "" && newOptions != "" {
-				result = CommandDBInsert(newTrigger, newOptions, level, 0, ch.database)
-			} else {
+			if len(submatch) == 0 {
 				result = "I'm sorry, I can't add that command for some reason."
+			} else {
+				result = CommandDBInsert(submatch[1], submatch[2], level, 0, ch.database)
 			}
 		}
 	case "removecommand":
