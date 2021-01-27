@@ -34,9 +34,9 @@ func AuthorizeCommand(userLevel, username, permissionLevel string) bool {
 	} else if userLevel == "b" {
 		zap.S().Debugf("The broadcaster can execute any command.")
 		return true
-	} else if permissionLevel == "m" && userLevel != "m" {
-		zap.S().Debugf("User is not authorized for moderator level commands")
-		return false
+	} else if permissionLevel == "m" && userLevel = "m" {
+		zap.S().Debugf("User is authorized for moderator level commands")
+		return true
 	} else if permissionLevel == "" {
 		zap.S().Debugf("This command is available to all users.")
 		return true

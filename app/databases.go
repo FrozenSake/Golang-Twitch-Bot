@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/url"
 	"os"
+	"strconv"
 	"strings"
 
 	_ "github.com/lib/pq"
@@ -206,6 +207,7 @@ func ChannelDBPrepare(channelName string) {
 
 	CommandTablePrepare(database)
 	UserTablePrepare(database)
+	QuoteTablePrepare(database)
 }
 
 func ChannelDBConnect(channelName string) *sql.DB {
@@ -319,4 +321,39 @@ func QuoteTablePrepare(db *sql.DB) {
 	}
 	defer statement.Close()
 	statement.Exec()
+}
+
+func QuoteTableSelect(quoteNumber int, db *sql.DB) (string, int, string) {
+	zap.S().Debugf("Querying database for command command: %v", quoteNumber)
+	if quoteNumber < 0 {
+		return "", 0, ""
+	}
+	if quoteNumber == 0 {
+		quoteNumber = 0
+	}
+	selectStatement := "SELECT * FROM quotes WHERE id = '" + strconv.Itoa(quoteNumber) + "';"
+
+	rows, err := db.Query(selectStatement)
+	if err != nil {
+		panic(err)
+	}
+	defer rows.Close()
+
+	var quoteBody string
+	var addedBy string
+
+	for rows.Next() {
+		var (
+			quoteText string
+			adder     string
+			quoteNum  int
+		)
+		rows.Scan(&quoteText, &adder, &quoteNum)
+		zap.S().Debugf("Query result: quoteNum: %v, quoteText: %v, adder: %v", quoteNum, quoteText, adder)
+		quoteBody = quoteText
+		quoteNumber = quoteNum
+		addedBy = adder
+	}
+
+	return quoteBody, quoteNumber, addedBy
 }
