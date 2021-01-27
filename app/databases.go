@@ -269,7 +269,7 @@ func CommandDBInsert(trigger string, payload string, permission string, cooldown
 		return "I couldn't add that command due to a SQL error."
 	}
 	defer statement.Close()
-	statement.Exec(trigger, payload, permission, cooldown)
+	statement.Exec()
 
 	return "Command " + trigger + " added succesfully."
 }
