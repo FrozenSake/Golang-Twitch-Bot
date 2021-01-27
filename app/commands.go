@@ -125,12 +125,13 @@ func ProcessChannelCommand(message twitch.PrivateMessage, ch broadcaster, re *re
 			result = "The bot has succesfully latched on to this channel."
 		}
 	default:
-		result, requiredPermission := CommandDBSelect(trigger, ch.database)
-		if result == "" {
+		res, requiredPermission := CommandDBSelect(trigger, ch.database)
+		if res == "" {
 			result = "No " + trigger + " command."
-		}
-		if !AuthorizeCommand(userPermissionLevel, userName, requiredPermission) {
+		} else if !AuthorizeCommand(userPermissionLevel, userName, requiredPermission) {
 			result = "Sorry, you're not authorized to use this command {user}."
+		} else {
+			result = res
 		}
 	}
 

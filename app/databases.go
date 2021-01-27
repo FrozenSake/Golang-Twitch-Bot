@@ -235,7 +235,7 @@ func CommandTablePrepare(db *sql.DB) {
 }
 
 func CommandDBSelect(trigger string, db *sql.DB) (string, string) {
-	zap.S().Debugf("Triggering command: %v", trigger)
+	zap.S().Debugf("Querying database for command command: %v", trigger)
 	selectStatement := "SELECT payload, permission FROM commands WHERE trigger = '" + trigger + "';"
 
 	rows, err := db.Query(selectStatement)
@@ -244,13 +244,20 @@ func CommandDBSelect(trigger string, db *sql.DB) (string, string) {
 	}
 	defer rows.Close()
 
-	var payload string
-	var permission string
+	var payloadResult string
+	var permissionResult string
 	for rows.Next() {
+		var (
+			payload    string
+			permission string
+		)
 		rows.Scan(&payload, &permission)
+		zap.S().Debugf("Query result: payload: %v, permission: %v", payload, permission)
+		payloadResult = payload
+		permissionResult = permission
 	}
 
-	return payload, permission
+	return payloadResult, permissionResult
 }
 
 func CommandDBInsert(trigger string, payload string, permission string, cooldown int, db *sql.DB) string {
