@@ -106,7 +106,7 @@ func ProcessChannelCommand(message twitch.PrivateMessage, ch broadcaster, re *re
 			submatch = re.FindStringSubmatch(options)
 			newTrigger := submatch[1]
 			newOptions := submatch[2]
-			result = CommandDBInsert(newTrigger, newOptions, level, ch.database, 0)
+			result = CommandDBInsert(newTrigger, newOptions, level, 0, ch.database)
 		}
 	case "removecommand":
 		requiredPermission = "m"

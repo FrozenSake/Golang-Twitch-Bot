@@ -17,6 +17,7 @@ import (
 const (
 	oauthForm = "oauth:"
 	// First group is command, second group is optional permission, third group is options
+	// Add username possibility to the permission category
 	commandRegex = "^!(?P<trigger>\\S+) ?(?P<permission>\\+[emb])? ?(?P<options>.*)"
 )
 
