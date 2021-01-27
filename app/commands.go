@@ -69,6 +69,7 @@ func ProcessWhisperCommand(message twitch.WhisperMessage, re *regexp.Regexp) str
 	case "joinchannel":
 		zap.S().Debug("Join Channel Command Called")
 		BotDBBroadcasterAdd(username)
+		CLIENT.Whisper("Hikthur", fmt.Sprintf("%s would like me to join their channel, thoughts? Use !authorizejoin to approve.", username))
 		resultMessage = fmt.Sprintf("Thank you %s for the join request, I've sent it to Hikthur for authorization", message.User.Name)
 	case "authorizejoin":
 		if strings.ToLower(username) != "hikthur" {
@@ -104,9 +105,19 @@ func ProcessChannelCommand(message twitch.PrivateMessage, ch broadcaster, re *re
 			result = ""
 		} else {
 			submatch = re.FindStringSubmatch(options)
-			newTrigger := submatch[1]
-			newOptions := submatch[2]
-			result = CommandDBInsert(newTrigger, newOptions, level, 0, ch.database)
+			var newTrigger string
+			var newOptions string
+			if submatch[1] != "" {
+				newTrigger = submatch[1]
+			}
+			if submatch[2] != "" {
+				newOptions = submatch[2]
+			}
+			if newTrigger != "" && newOptions != "" {
+				result = CommandDBInsert(newTrigger, newOptions, level, 0, ch.database)
+			} else {
+				result = "I'm sorry, I can't add that command for some reason."
+			}
 		}
 	case "removecommand":
 		requiredPermission = "m"

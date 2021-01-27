@@ -29,6 +29,8 @@ var (
 	channels    map[string]broadcaster
 )
 
+var CLIENT *twitch.Client
+
 type broadcaster struct {
 	name     string
 	database *sql.DB
@@ -137,16 +139,16 @@ func main() {
 	re := regexp.MustCompile(commandRegex)
 
 	zap.S().Infof("Connecting Twitch Client: %v", username)
-	client := twitch.NewClient(username, oauth)
+	CLIENT = twitch.NewClient(username, oauth)
 
 	zap.S().Info("Prepare channels")
 	for _, channelName := range targets {
 		channelName = strings.ToLower(channelName)
 		zap.S().Infof("Join channel %v", channelName)
-		client.Join(channelName)
+		CLIENT.Join(channelName)
 
 		zap.S().Debugf("##USERLIST FOR %v##\n", channelName)
-		userlist, err := client.Userlist(channelName)
+		userlist, err := CLIENT.Userlist(channelName)
 		if err != nil {
 			zap.S().Errorf("Encountered error listing users: %v", err)
 			zap.S().Infof("Skipping to next channel")
@@ -159,31 +161,31 @@ func main() {
 		channels[channelName] = bc
 	}
 
-	client.OnPrivateMessage(func(message twitch.PrivateMessage) {
+	CLIENT.OnPrivateMessage(func(message twitch.PrivateMessage) {
 		//zap.S().Debugf("%v - %v: %v\n", message.Channel, message.User.DisplayName, message.Message)
 		if re.MatchString(message.Message) {
 			zap.S().Debugf("##Possible Command detected in %v!##", message.Channel)
 			target := message.Channel
 			commandMessage := ProcessChannelCommand(message, channels[target], re)
 			if commandMessage != "" {
-				client.Say(target, commandMessage)
+				CLIENT.Say(target, commandMessage)
 			}
 		}
 	})
 
-	client.OnWhisperMessage(func(message twitch.WhisperMessage) {
+	CLIENT.OnWhisperMessage(func(message twitch.WhisperMessage) {
 		zap.S().Debugf("Whisper received from %v", message.User)
 		zap.S().Debugf("%v: %v\n", message.User.DisplayName, message.Message)
 		if re.MatchString(message.Message) {
 			zap.S().Debugf("Whisper Command Received From: %v, Content: %v", message.User, message.Message)
 			resultMessage := ProcessWhisperCommand(message, re)
 			if resultMessage != "" {
-				client.Whisper(message.User.Name, resultMessage)
+				CLIENT.Whisper(message.User.Name, resultMessage)
 			}
 		}
 	})
 
-	err := client.Connect()
+	err := CLIENT.Connect()
 	if err != nil {
 		zap.S().Errorf("Error connecting twitch client: %v", err)
 		panic(err)
