@@ -92,7 +92,7 @@ func BotDBPrepare() {
 
 func BotDBMainTablesPrepare() {
 	zap.S().Info("Preparing the bot DB broadcasters table")
-	statement, err := BOTDB.Prepare("CREATE TABLE IF NOT EXISTS broadcasters (id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY, channelname UNIQUE TEXT, dbcreated BOOL, authorized BOOL);")
+	statement, err := BOTDB.Prepare("CREATE TABLE IF NOT EXISTS broadcasters (id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY, channelname TEXT UNIQUE, dbcreated BOOL, authorized BOOL);")
 	if err != nil {
 		handleSQLError(err)
 	}
