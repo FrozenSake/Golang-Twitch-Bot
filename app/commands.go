@@ -120,8 +120,12 @@ func ProcessChannelCommand(message twitch.PrivateMessage, ch broadcaster, re *re
 			result = ""
 		} else {
 			submatch = re.FindStringSubmatch(options)
-			deleteTrigger := submatch[1]
-			result = CommandDBRemove(deleteTrigger, ch.database)
+			if len(submatch) == 0 {
+				result = "I'm sorry, you didn't supply a command I understand."
+			} else {
+				deleteTrigger := submatch[1]
+				result = CommandDBRemove(deleteTrigger, ch.database)
+			}
 		}
 	case "connectiontest":
 		requiredPermission = "m"
