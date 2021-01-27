@@ -205,7 +205,7 @@ func ChannelDBPrepare(channelName string) {
 	defer database.Close()
 
 	CommandTablePrepare(database)
-	UserDBPrepare(database)
+	UserTablePrepare(database)
 }
 
 func ChannelDBConnect(channelName string) *sql.DB {
@@ -286,10 +286,10 @@ func CommandDBRemove(trigger string, db *sql.DB) string {
 	return "Command " + trigger + " removed succesfully."
 }
 
-/* User/Viewer Table Interactions */
+/* User/Viewer Table */
 
-func UserDBPrepare(db *sql.DB) {
-	zap.S().Info("Preparing the User DB for a channel")
+func UserTablePrepare(db *sql.DB) {
+	zap.S().Info("Preparing the User Table for a channel")
 	// User table fields: Name, aliases, streams visited, last seen, watchtime, status, streamer BOOL, streamlink/shoutout
 	statement, err := db.Prepare("CREATE TABLE IF NOT EXISTS channelusers (id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY, name TEXT, aliases BLOB, lastseen TEXT, streamsvisited INTEGER, watchtime INTEGER, streamer BOOL, streamlink TEXT)")
 	if err != nil {
@@ -299,12 +299,24 @@ func UserDBPrepare(db *sql.DB) {
 	statement.Exec()
 }
 
-func UserDBSelect(db *sql.DB) {
+func UserTableSelect(db *sql.DB) {
 	zap.S().Info("Selecting from the user DB")
 	fmt.Printf("%v\n", db)
 }
 
-func UserDBInsert(db *sql.DB) {
+func UserTableInsert(db *sql.DB) {
 	zap.S().Info("Inserting into the User DB")
 	fmt.Printf("%v\n", db)
+}
+
+/* Quote Table */
+
+func QuoteTablePrepare(db *sql.DB) {
+	zap.S().Info("Preparing the Quote Table for a channel")
+	statement, err := db.Prepare("CREATE TABLE IF NOT EXISTS quotes (id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY, quote TEXT, addedby TEXT)")
+	if err != nil {
+		panic(err)
+	}
+	defer statement.Close()
+	statement.Exec()
 }
