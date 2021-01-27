@@ -69,7 +69,7 @@ func ProcessWhisperCommand(message twitch.WhisperMessage, re *regexp.Regexp) str
 	case "joinchannel":
 		zap.S().Debug("Join Channel Command Called")
 		BotDBBroadcasterAdd(username)
-		CLIENT.Whisper("Hikthur", fmt.Sprintf("%s would like me to join their channel, thoughts? Use !authorizejoin to approve.", username))
+		CLIENT.Whisper("hikthur", fmt.Sprintf("%s would like me to join their channel, thoughts? Use !authorizejoin to approve.", username))
 		resultMessage = fmt.Sprintf("Thank you %s for the join request, I've sent it to Hikthur for authorization", message.User.Name)
 	case "authorizejoin":
 		if strings.ToLower(username) != "hikthur" {
