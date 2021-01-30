@@ -3,7 +3,6 @@ package main
 
 import (
 	"fmt"
-	"regexp"
 	"strings"
 
 	"github.com/gempir/go-twitch-irc/v2"
@@ -56,12 +55,12 @@ func ProcessUserSubscription(tags map[string]string) string {
 	return subscriberTime
 }
 
-func ProcessWhisperCommand(message twitch.WhisperMessage, re *regexp.Regexp) string {
+func ProcessWhisperCommand(message twitch.WhisperMessage) string {
 	zap.S().Debug("Processing Whisper Command")
 
 	var resultMessage string
 	username := message.User.Name
-	submatch := re.FindStringSubmatch(message.Message)
+	submatch := RE.FindStringSubmatch(message.Message)
 	trigger := strings.ToLower(submatch[1])
 	options := submatch[3]
 
@@ -85,11 +84,11 @@ func ProcessWhisperCommand(message twitch.WhisperMessage, re *regexp.Regexp) str
 	return resultMessage
 }
 
-func ProcessChannelCommand(message twitch.PrivateMessage, ch broadcaster, re *regexp.Regexp) string {
+func ProcessChannelCommand(message twitch.PrivateMessage, ch broadcaster) string {
 	zap.S().Debugf("Executing a command")
 
 	///// REWORK TO INCLUDE command permission options structure.
-	submatch := re.FindStringSubmatch(message.Message)
+	submatch := RE.FindStringSubmatch(message.Message)
 	trigger := strings.ToLower(submatch[1])
 	options := submatch[3]
 	var result string
@@ -103,7 +102,7 @@ func ProcessChannelCommand(message twitch.PrivateMessage, ch broadcaster, re *re
 		if !AuthorizeCommand(userPermissionLevel, userName, requiredPermission) {
 			result = ""
 		} else {
-			submatch = re.FindStringSubmatch(options)
+			submatch = RE.FindStringSubmatch(options)
 			if len(submatch) == 0 {
 				result = "I'm sorry, I can't add that command for some reason."
 			} else {
@@ -112,6 +111,9 @@ func ProcessChannelCommand(message twitch.PrivateMessage, ch broadcaster, re *re
 				newPayload := submatch[3]
 				zap.S().Debugf("Adding command with trigger: %v, level: %v, payload: %v", newTrigger, newLevel, newPayload)
 				result = CommandDBInsert(newTrigger, newPayload, newLevel, 0, ch.database)
+				if result != "I couldn't add that command due to a SQL error." {
+					ch.commands = append(ch.commands, newTrigger)
+				}
 			}
 		}
 	case "removecommand":
@@ -119,7 +121,7 @@ func ProcessChannelCommand(message twitch.PrivateMessage, ch broadcaster, re *re
 		if !AuthorizeCommand(userPermissionLevel, userName, requiredPermission) {
 			result = ""
 		} else {
-			submatch = re.FindStringSubmatch(options)
+			submatch = RE.FindStringSubmatch(options)
 			if len(submatch) == 0 {
 				result = "I'm sorry, you didn't supply a command I understand."
 			} else {
@@ -134,10 +136,26 @@ func ProcessChannelCommand(message twitch.PrivateMessage, ch broadcaster, re *re
 		} else {
 			result = "The bot has succesfully latched on to this channel."
 		}
+	case "help":
+		result = "This bot is being helpful!"
 	default:
+		zap.S().Infof("Verifying command %v is in the channel's list.", trigger)
+		available := false
+		for _, comm := range ch.commands {
+			if trigger == comm {
+				available = true
+				break
+			}
+		}
+		if !available {
+			zap.S().Infof("Couldn't find the %v command.", trigger)
+			return ""
+		}
+		zap.S().Infof("Command is in the list, querying DB.")
 		res, requiredPermission := CommandDBSelect(trigger, ch.database)
 		if res == "" {
-			result = "No " + trigger + " command."
+			zap.S().Infof("Couldn't find the %v command in the DB. This only happens if it was removed in the last 5 minutes.", trigger)
+			result = "Command recently deleted."
 		} else if !AuthorizeCommand(userPermissionLevel, userName, requiredPermission) {
 			result = "Sorry, you're not authorized to use this command {user}."
 		} else {

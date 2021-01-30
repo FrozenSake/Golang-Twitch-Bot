@@ -236,13 +236,32 @@ func CommandTablePrepare(db *sql.DB) {
 	statement.Exec()
 }
 
+func GetCommands(db *sql.DB) []string {
+	zap.S().Infof("Preparing a slice of commands in the DB")
+	statement := "SELECT DISTINCT trigger FROM commands;"
+	rows, err := db.Query(statement)
+	if err != nil {
+		handleSQLError(err)
+	}
+	defer rows.Close()
+
+	var commands []string
+	for rows.Next() {
+		var trigger string
+		rows.Scan(&trigger)
+		commands = append(commands, trigger)
+	}
+
+	return commands
+}
+
 func CommandDBSelect(trigger string, db *sql.DB) (string, string) {
 	zap.S().Debugf("Querying database for command command: %v", trigger)
 	selectStatement := "SELECT payload, permission FROM commands WHERE trigger = '" + trigger + "';"
 
 	rows, err := db.Query(selectStatement)
 	if err != nil {
-		panic(err)
+		handleSQLError(err)
 	}
 	defer rows.Close()
 

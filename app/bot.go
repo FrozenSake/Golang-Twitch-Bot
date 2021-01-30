@@ -6,6 +6,7 @@ import (
 	"os"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/service/rds"
@@ -30,10 +31,13 @@ var (
 )
 
 var CLIENT *twitch.Client
+var RE *regexp.Regexp
 
 type broadcaster struct {
-	name     string
-	database *sql.DB
+	name      string
+	database  *sql.DB
+	commands  []string
+	connected bool
 }
 
 /* General AWS */
@@ -89,6 +93,8 @@ func handleAWSError(err error) {
 	}
 }
 
+/* General Twitch */
+
 func OauthCheck() {
 	zap.S().Debug("Checking OAuth Format")
 	if oauth[:6] != oauthForm {
@@ -97,18 +103,50 @@ func OauthCheck() {
 	}
 }
 
+func Disconnectedchannel(ch broadcaster) {
+	ch.connected = false
+}
+
+func ConnectedChannel(ch broadcaster) {
+	ch.connected = true
+}
+
 /* Formatting */
 
 func FormatResponse(payload string, message twitch.PrivateMessage) string {
+	//Username formatting:: {user} - grabs the username of the user
 	var user string
-	if message.User.Name == "" && message.User.DisplayName != "" {
+	if message.User.DisplayName != "" {
 		user = message.User.DisplayName
 	} else {
 		user = message.User.Name
 	}
 	formatted := strings.ReplaceAll(payload, "{user}", user)
+	//Target Formatting:: {target} - grabs the first word after the command
+	match := RE.FindStringSubmatch(message.Message)
+	if len(match) != 0 {
+		message := match[3]
+		target := strings.SplitAfterN(message, " ", 2)
+		formatted = strings.ReplaceAll(formatted, "{target}", target[0])
+	}
 
+	//Multi-target formatting:: {target1}, {target2}, ... {targetn} or {1}, {2}, ..., {n}
+
+	//Discord Formatting:: {discord}
+
+	//Twitch Link Formatting:: {twitch} or {streamer}
+
+	//Timer repeat:: {xs} - always at the end of the call, repeats the command after x seconds.
 	return formatted
+}
+
+/* GoRoutines - Subprocesses */
+
+func syncCommandList(ch broadcaster) {
+	for ch.connected {
+		time.Sleep(5 * time.Minute)
+		ch.commands = GetCommands(ch.database)
+	}
 }
 
 /* Run */
@@ -136,7 +174,7 @@ func main() {
 	channels = make(map[string]broadcaster)
 
 	// Define a regex object
-	re := regexp.MustCompile(commandRegex)
+	RE = regexp.MustCompile(commandRegex)
 
 	zap.S().Infof("Connecting Twitch Client: %v", username)
 	CLIENT = twitch.NewClient(username, oauth)
@@ -157,16 +195,18 @@ func main() {
 		zap.S().Debugf("Users: %v\n", userlist)
 
 		DB := ChannelDBConnect(channelName)
-		bc := broadcaster{name: channelName, database: DB}
+		comms := GetCommands(DB)
+		bc := broadcaster{name: channelName, database: DB, commands: comms, connected: true}
+		go syncCommandList(bc)
 		channels[channelName] = bc
 	}
 
 	CLIENT.OnPrivateMessage(func(message twitch.PrivateMessage) {
 		//zap.S().Debugf("%v - %v: %v\n", message.Channel, message.User.DisplayName, message.Message)
-		if re.MatchString(message.Message) {
+		if RE.MatchString(message.Message) {
 			zap.S().Debugf("##Possible Command detected in %v!##", message.Channel)
 			target := message.Channel
-			commandMessage := ProcessChannelCommand(message, channels[target], re)
+			commandMessage := ProcessChannelCommand(message, channels[target])
 			if commandMessage != "" {
 				CLIENT.Say(target, commandMessage)
 			}
@@ -176,9 +216,9 @@ func main() {
 	CLIENT.OnWhisperMessage(func(message twitch.WhisperMessage) {
 		zap.S().Debugf("Whisper received from %v", message.User)
 		zap.S().Debugf("%v: %v\n", message.User.DisplayName, message.Message)
-		if re.MatchString(message.Message) {
+		if RE.MatchString(message.Message) {
 			zap.S().Debugf("Whisper Command Received From: %v, Content: %v", message.User, message.Message)
-			resultMessage := ProcessWhisperCommand(message, re)
+			resultMessage := ProcessWhisperCommand(message)
 			if resultMessage != "" {
 				CLIENT.Whisper(message.User.Name, resultMessage)
 			}
